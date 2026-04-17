@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Perfil do utilizador do GingaFutsal",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID único do Firebase Auth" },
+        "email": { "type": "string", "format": "email" },
+        "nome": { "type": "string" },
+        "bairro": { "type": "string" },
+        "jogos": { "type": "number" },
+        "golos": { "type": "number" },
+        "mvps": { "type": "number" },
+        "ranking": { "type": "string" },
+        "isPro": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email", "nome"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Publicação de vídeo ou foto na Pelada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "nome": { "type": "string" },
+        "bairro": { "type": "string" },
+        "likes": { "type": "number" },
+        "image": { "type": "string" },
+        "avatar": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "isPro": { "type": "boolean" }
+      },
+      "required": ["authorUid", "nome", "createdAt"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Partida de futsal ao vivo ou finalizada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "equipaA": { "type": "string" },
+        "equipaB": { "type": "string" },
+        "equipaAId": { "type": "string" },
+        "equipaBId": { "type": "string" },
+        "golosA": { "type": "number" },
+        "golosB": { "type": "number" },
+        "tempo": { "type": "string" },
+        "status": { "type": "string", "enum": ["AGENDADO", "AO VIVO", "FINALIZADO"] },
+        "ligaId": { "type": "string" },
+        "data": { "type": "number" }
+      },
+      "required": ["equipaA", "equipaB", "status"]
+    },
+    "League": {
+      "title": "League",
+      "description": "Liga ou torneio de futsal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "regiao": { "type": "string" },
+        "logo": { "type": "string" },
+        "temporada": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["nome", "regiao"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Equipa de futsal participante numa liga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "logo": { "type": "string" },
+        "ligaId": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["nome", "ligaId"]
+    },
+    "LeaguePlayer": {
+      "title": "LeaguePlayer",
+      "description": "Jogador inscrito numa equipa da liga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "posicao": { "type": "string" },
+        "numero": { "type": "number" },
+        "equipaId": { "type": "string" }
+      },
+      "required": ["nome", "posicao", "equipaId"]
+    },
+    "Ad": {
+      "title": "Ad",
+      "description": "Anúncio no Marketplace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "string" },
+        "img": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "isFeatured": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["authorUid", "title", "price", "whatsapp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "Coleção de perfis de utilizadores"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Coleção de publicações da Pelada"
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Coleção de partidas em tempo real"
+    },
+    "/leagues/{leagueId}": {
+      "schema": "League",
+      "description": "Coleção de ligas e torneios"
+    },
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Coleção de equipas das ligas"
+    },
+    "/league_players/{playerId}": {
+      "schema": "LeaguePlayer",
+      "description": "Coleção de jogadores inscritos nas equipas"
+    },
+    "/ads/{adId}": {
+      "schema": "Ad",
+      "description": "Coleção de anúncios do marketplace"
+    }
+  }
+}

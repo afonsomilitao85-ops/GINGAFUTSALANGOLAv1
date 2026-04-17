@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role check: In this app, we'll check if the user profile has an admin role
+    // OR if they are in an explicit admins collection.
+    // Given the app's structure, we'll use a projects admins collection for robustness.
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'nome']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.nome is string && data.nome.size() <= 100 &&
+             (!('bairro' in data) || (data.bairro is string && data.bairro.size() <= 100)) &&
+             (!('jogos' in data) || (data.jogos is number)) &&
+             (!('golos' in data) || (data.golos is number)) &&
+             (!('mvps' in data) || (data.mvps is number)) &&
+             (!('ranking' in data) || (data.ranking is string && data.ranking.size() <= 50)) &&
+             (!('isPro' in data) || (data.isPro is bool)) &&
+             (!('role' in data) || (data.role in ['user', 'admin']));
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['authorUid', 'nome', 'createdAt']) &&
+             data.authorUid == request.auth.uid &&
+             data.nome is string && data.nome.size() <= 100 &&
+             data.createdAt == request.time &&
+             (!('bairro' in data) || (data.bairro is string && data.bairro.size() <= 100)) &&
+             (!('likes' in data) || (data.likes is number)) &&
+             (!('image' in data) || (data.image is string && data.image.size() <= 1024)) &&
+             (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 1024)) &&
+             (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 1024)) &&
+             (!('isPro' in data) || (data.isPro is bool));
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['equipaA', 'equipaB', 'status']) &&
+             data.equipaA is string && data.equipaA.size() <= 100 &&
+             data.equipaB is string && data.equipaB.size() <= 100 &&
+             data.status in ['AGENDADO', 'AO VIVO', 'FINALIZADO'] &&
+             (!('golosA' in data) || (data.golosA is number)) &&
+             (!('golosB' in data) || (data.golosB is number)) &&
+             (!('tempo' in data) || (data.tempo is string && data.tempo.size() <= 20)) &&
+             (!('ligaId' in data) || (data.ligaId is string && isValidId(data.ligaId))) &&
+             (!('data' in data) || (data.data is timestamp || data.data is number));
+    }
+
+    function isValidAd(data) {
+      return data.keys().hasAll(['authorUid', 'title', 'price', 'whatsapp']) &&
+             data.authorUid == request.auth.uid &&
+             data.title is string && data.title.size() <= 150 &&
+             data.price is string && data.price.size() <= 50 &&
+             data.whatsapp is string && data.whatsapp.size() <= 30 &&
+             (!('img' in data) || (data.img is string && data.img.size() <= 1024)) &&
+             (!('isFeatured' in data) || (data.isFeatured is bool)) &&
+             (!('createdAt' in data) || (data.createdAt is number || data.createdAt is timestamp));
+    }
+
+    // --- Collections ---
+
+    // Users
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isEmailVerified() && uid == request.auth.uid && isValidId(uid) && isValidUser(incoming()) && !('role' in incoming());
+      allow update: if isEmailVerified() && uid == request.auth.uid && isValidId(uid) && isValidUser(incoming()) && (
+        // Allow updating stats but NOT role
+        incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'bairro', 'jogos', 'golos', 'mvps', 'ranking', 'isPro', 'avatar', 'updatedAt'])
+      ) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Posts
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isEmailVerified() && isValidId(postId) && isValidPost(incoming());
+      allow update: if isEmailVerified() && isValidId(postId) && (
+        (isOwner(existing().authorUid) && isValidPost(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'bairro', 'image', 'avatar', 'videoUrl', 'isPro'])) ||
+        // Public can update likes incrementaly
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes']) && incoming().likes == existing().likes + 1)
+      ) || isAdmin();
+      allow delete: if isEmailVerified() && isValidId(postId) && (isOwner(existing().authorUid) || isAdmin());
+    }
+
+    // Matches
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(matchId);
+      // Example: Lock match if finalized
+      allow update: if isAdmin() && isValidId(matchId) && existing().status != 'FINALIZADO' && isValidMatch(incoming());
+    }
+
+    // Leagues, Teams, Players
+    match /leagues/{id} { allow read: if true; allow write: if isAdmin() && isValidId(id); }
+    match /teams/{id} { allow read: if true; allow write: if isAdmin() && isValidId(id); }
+    match /league_players/{id} { allow read: if true; allow write: if isAdmin() && isValidId(id); }
+
+    // Ads (Marketplace)
+    match /ads/{adId} {
+      allow read: if true;
+      allow create: if isEmailVerified() && isValidId(adId) && isValidAd(incoming());
+      allow update: if isEmailVerified() && isValidId(adId) && isOwner(existing().authorUid) && isValidAd(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'price', 'img', 'whatsapp', 'isFeatured', 'updatedAt'])
+      ) || isAdmin();
+      allow delete: if isEmailVerified() && isValidId(adId) && (isOwner(existing().authorUid) || isAdmin());
+    }
+
+    // Admin collection - bootstrap with the developer's UID if needed
+    match /admins/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable via console or service account
+    }
+  }
+}
