@@ -300,7 +300,6 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
           src="/logo.png" 
           alt="Ginga Futsal" 
           className="w-full h-full object-contain p-0.5 rounded-lg" 
-          referrerPolicy="no-referrer"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/100/100';
           }}
@@ -331,7 +330,7 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
 // --- Screens ---
 
 const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, onAdminLogin: () => void }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden bg-background">
+  <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden bg-transparent">
      {/* Background Elements */}
      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-accent/20 blur-[120px] rounded-full" />
@@ -349,7 +348,6 @@ const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, o
             src="/logo.png" 
             alt="Ginga Futsal" 
             className="w-full h-full object-contain p-2 rounded-[2rem]" 
-            referrerPolicy="no-referrer"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
             }}
@@ -573,7 +571,6 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
               src="/logo.png" 
               alt="Ginga Futsal" 
               className="w-full h-full object-contain p-1 rounded-[1rem]" 
-              referrerPolicy="no-referrer"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
               }}
@@ -946,7 +943,7 @@ const PeladaScreen = () => {
   const [notified, setNotified] = useState(false);
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center space-y-8 bg-[#0A0F1C] relative overflow-hidden">
+    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center space-y-8 bg-transparent relative overflow-hidden">
       {/* Background Decorative Element */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent/10 blur-[100px] rounded-full pointer-events-none" />
       
