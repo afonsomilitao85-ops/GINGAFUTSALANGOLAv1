@@ -35,18 +35,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
   
-  // CRITICAL: Bypass Service Worker for all Firebase services to prevent upload/auth hangs
-  // We check for common Firebase domains and non-GET methods (uploads use POST/PUT)
+  // CRITICAL: Bypass Service Worker for all Firebase and Google API services
+  // We bypass all requests to these domains to prevent hangs in restricted networks
   if (
-    event.request.method !== 'GET' ||
-    url.includes('firebasestorage.googleapis.com') ||
-    url.includes('firestore.googleapis.com') ||
-    url.includes('identitytoolkit.googleapis.com') ||
-    url.includes('firebase.googleapis.com') ||
-    url.includes('firebaseapp.com') ||
-    url.includes('googleapis.com')
+    url.includes('firebase') ||
+    url.includes('google') ||
+    url.includes('googleapis') ||
+    url.includes('identitytoolkit') ||
+    url.includes('securetoken')
   ) {
-    return; // Let the browser handle the request normally via network
+    return;
+  }
+
+  // Only handle GET requests for other assets
+  if (event.request.method !== 'GET') {
+    return;
   }
 
   event.respondWith(

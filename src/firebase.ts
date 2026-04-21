@@ -54,11 +54,12 @@ export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence);
 
 // Stabilize Firestore for environments with proxies/restricted networks
-// We use long polling to bypass potential gRPC-web issues in iframes
-export const db = initializeFirestore(app, {
+// We use long polling and disable streams to bypass potential gRPC-web issues in iframes
+export const db = initializeFirestore(app as any, {
   experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false
-}, firebaseConfig.firestoreDatabaseId);
+  experimentalAutoDetectLongPolling: false,
+  useFetchStreams: false,
+} as any, firebaseConfig.firestoreDatabaseId);
 
 // Note: Persistence is disabled for now to prevent stale cache issues 
 // that can happen when switching Firebase projects in a preview environment.
@@ -77,9 +78,7 @@ try {
 
 console.log('Firebase Storage initialized with bucket:', firebaseConfig.storageBucket);
 
-// Auth Providers
-export const googleProvider = new GoogleAuthProvider();
-
+// Auth Providers (Not exported, handled in components for direct SDK reference)
 // Error Handling Helper
 export enum OperationType {
   CREATE = 'create',
@@ -142,12 +141,12 @@ async function testConnection(retries = 3) {
     console.log(`Testing Firestore connection... (Attempt ${4 - retries})`);
     
     // We try to fetch from a non-existent doc to test connectivity without needing data
+    console.log('Fetching system/ping...');
     await getDocFromServer(doc(db, 'system', 'ping'));
-    console.log('Firestore connection successful.');
+    console.log('Firestore connection successful (backend reached).');
   } catch (error: any) {
-    // If it's a "permission-denied" or "not-found", the connection WORKED
     if (error && (error.code === 'permission-denied' || error.code === 'not-found')) {
-      console.log('Firestore connection verified (backend reached).');
+      console.log('Firestore connection verified (backend reached, expected code):', error.code);
       return;
     }
 
@@ -165,8 +164,6 @@ async function testConnection(retries = 3) {
 testConnection();
 
 export { 
-  GoogleAuthProvider,
-  signInWithPopup, 
   signOut, 
   onAuthStateChanged, 
   RecaptchaVerifier, 

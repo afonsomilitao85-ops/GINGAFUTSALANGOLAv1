@@ -11,15 +11,24 @@
 
 @layer base {
   html, body {
-    @apply m-0 p-0 min-h-screen;
+    @apply m-0 p-0 min-h-screen relative;
     background-color: #0A0F1C;
-    background-image: 
-      linear-gradient(to bottom, rgba(10, 15, 28, 0.8), rgba(10, 15, 28, 0.9)),
-      url('/Arena.png');
+    background-image: url('/Arena.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
     background-repeat: no-repeat;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: -1;
   }
 
   body {

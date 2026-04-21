@@ -39,15 +39,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   auth, 
   db, 
-  googleProvider, 
+} from './firebase';
+import {
   GoogleAuthProvider,
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  RecaptchaVerifier, 
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  RecaptchaVerifier,
   signInWithPhoneNumber,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from 'firebase/auth';
+import { 
   doc, 
   setDoc, 
   getDoc, 
@@ -298,7 +301,7 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
       <div className="w-8 h-8 sm:w-10 sm:h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center shadow-lg shadow-accent/20 border-2 border-accent/20">
         <img 
           src="/logo.png" 
-          alt="Ginga Futsal" 
+          alt="GINGAFUTSAL Logo" 
           className="w-full h-full object-contain p-0.5 rounded-lg" 
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/100/100';
@@ -331,12 +334,6 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
 
 const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, onAdminLogin: () => void }) => (
   <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden bg-transparent">
-     {/* Background Elements */}
-     <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-accent/20 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-500/10 blur-[120px] rounded-full" />
-      </div>
-
       <div className="w-full max-w-md space-y-12 relative z-10 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -346,7 +343,7 @@ const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, o
         >
           <img 
             src="/logo.png" 
-            alt="Ginga Futsal" 
+            alt="GINGAFUTSAL Logo" 
             className="w-full h-full object-contain p-2 rounded-[2rem]" 
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
@@ -380,6 +377,7 @@ const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, o
           className="space-y-4 pt-8"
         >
           <button 
+            id="btnEntrar"
             onClick={onEnterApp}
             className="w-full bg-accent text-white font-black py-5 rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg uppercase tracking-widest"
           >
@@ -388,10 +386,11 @@ const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, o
           </button>
           
           <button 
+            id="adminBtn"
             onClick={onAdminLogin}
-            className="w-full glass border border-white/10 text-white font-bold py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-white/5 transition-all text-sm uppercase tracking-widest opacity-60 hover:opacity-100"
+            className="text-white/30 text-[10px] font-bold uppercase tracking-[0.2em] hover:text-white transition-all flex items-center justify-center gap-2 mx-auto mt-4"
           >
-            <Lock size={18} />
+            <Lock size={12} />
             Área Administrativa
           </button>
         </motion.div>
@@ -448,12 +447,45 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
     setIsLoading(true);
     setError('');
     
+    // Master Admin Config
+    const ADMIN_EMAIL = "afonsomilitao85@gmail.com";
+    const MASTER_KEY = "GINGA85";
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanPassword = password.trim();
+
     const attemptAuth = async (retryCount = 0): Promise<void> => {
       try {
         if (isRegistering) {
-          await createUserWithEmailAndPassword(auth, email, password);
+          await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         } else {
-          await signInWithEmailAndPassword(auth, email, password);
+          try {
+            // Check for Master Key Bypass (requested by user)
+            if (cleanEmail === ADMIN_EMAIL && cleanPassword === MASTER_KEY) {
+              console.log("Master key detected for admin.");
+              // First, try to register them if they don't exist
+              try {
+                await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+              } catch (regErr: any) {
+                // If already exists, just sign in
+                if (regErr.code === 'auth/email-already-in-use') {
+                  await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+                } else {
+                  throw regErr;
+                }
+              }
+              return;
+            }
+
+            await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+          } catch (loginErr: any) {
+            // Auto-setup admin on first login attempt if they don't exist
+            if (loginErr.code === 'auth/user-not-found' && cleanEmail === ADMIN_EMAIL) {
+              await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+              return;
+            }
+            throw loginErr;
+          }
         }
       } catch (err: any) {
         // If it's a network error and we haven't retried too many times, try again after a short delay
@@ -516,10 +548,10 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
         throw new Error('Firebase Auth não inicializado.');
       }
       
+      console.log('Chamando signInWithPopup...');
+      // Direct instance creation for better argument validation
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      
-      console.log('Chamando signInWithPopup...');
       const result = await signInWithPopup(auth, provider);
       console.log('Google Sign-In sucesso:', result.user.email);
     } catch (err: any) {
@@ -528,9 +560,14 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
       const errorCode = err.code || '';
       const errorMessage = err.message || '';
       
+      if (errorCode === 'auth/internal-error' || errorMessage.includes('auth/internal-error')) {
+        setError('Erro Interno de Autenticação. Isto acontece frequentemente quando o domínio não está autorizado no Firebase ou devido a restrições do editor (iframe).');
+        return;
+      }
+      
       // Handle "popup-closed-by-user" gracefully but provide helpful info
       if (errorCode === 'auth/popup-closed-by-user' || errorMessage.includes('auth/popup-closed-by-user')) {
-        setError('O login via Google costuma falhar dentro do editor (iframe), especialmente em telemóveis.');
+        setError('O login via Google foi cancelado ou falhou devido a restrições do editor (iframe).');
         return;
       }
       
@@ -569,7 +606,7 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
           <div className="w-20 h-20 overflow-hidden rounded-[1.5rem] bg-white flex items-center justify-center mx-auto shadow-2xl shadow-accent/20 mb-6 border-4 border-accent/20">
             <img 
               src="/logo.png" 
-              alt="Ginga Futsal" 
+              alt="GINGAFUTSAL Logo" 
               className="w-full h-full object-contain p-1 rounded-[1rem]" 
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
@@ -644,7 +681,7 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
                 </div>
                 <p className="text-red-500 text-xs font-medium leading-relaxed text-left">
                   {error}
-                  {(error.includes('costuma falhar') || error.includes('popup-closed-by-user')) && (
+                  {(error.includes('costuma falhar') || error.includes('popup-closed-by-user') || error.includes('Interno')) && (
                     <button 
                       type="button"
                       onClick={() => window.open(window.location.href, '_blank')}
@@ -718,7 +755,7 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
                 </div>
                 <p className="text-red-500 text-xs font-medium leading-relaxed text-left">
                   {error}
-                  {(error.includes('costuma falhar') || error.includes('popup-closed-by-user')) && (
+                  {(error.includes('costuma falhar') || error.includes('popup-closed-by-user') || error.includes('Interno')) && (
                     <button 
                       type="button"
                       onClick={() => window.open(window.location.href, '_blank')}
@@ -3245,7 +3282,7 @@ const ScoutScreen = ({ players }: { players: Player[] }) => {
               </div>
               <div className="text-right">
                 <p className="text-accent font-bold text-lg">{player.rating}</p>
-                <p className="text-[8px] text-white/40 font-bold uppercase">Rating</p>
+                <p className="text-[8px] text-white/40 font-bold uppercase">Nota</p>
               </div>
             </div>
           ))}
@@ -3346,6 +3383,10 @@ const [isGuest, setIsGuest] = useState(false);
                 // Admin email check
                 if (userEmail === "afonsomilitao85@gmail.com") {
                   userData.role = 'admin';
+                  localStorage.setItem("isAdmin", "true");
+                } else {
+                  userData.role = 'user';
+                  localStorage.removeItem("isAdmin");
                 }
                 
                 // If we are in "Admin Login" mode and the user is NOT an admin, log them out
@@ -3365,10 +3406,29 @@ const [isGuest, setIsGuest] = useState(false);
 
                 setCurrentUser(userData);
               } else {
-                // If the user document doesn't exist, they can't be an admin (in this flow)
-                // EXCEPT if it's the master admin email we are waiting to create
+                // If the user document doesn't exist, check if it's the admin
                 const userEmail = firebaseUser.email?.toLowerCase().trim();
-                if (showAdminLogin && userEmail !== "afonsomilitao85@gmail.com") {
+                if (userEmail === "afonsomilitao85@gmail.com") {
+                  // Provide a temporary admin profile while Firestore catch up
+                  const tempAdmin: UserProfile = {
+                    uid: firebaseUser.uid,
+                    nome: firebaseUser.displayName || 'Admin Ginga',
+                    email: firebaseUser.email || '',
+                    bairro: 'Luanda, AO',
+                    jogos: 0,
+                    golos: 0,
+                    mvps: 0,
+                    ranking: 'Admin',
+                    isPro: true,
+                    role: 'admin'
+                  };
+                  setCurrentUser(tempAdmin);
+                  localStorage.setItem("isAdmin", "true");
+                  if (showAdminLogin) {
+                    setActiveScreen('admin');
+                    setShowAdminLogin(false);
+                  }
+                } else if (showAdminLogin) {
                   signOut(auth);
                   alert("Esta conta não possui perfil administrativo.");
                   setShowAdminLogin(false);
@@ -3561,6 +3621,7 @@ const [isGuest, setIsGuest] = useState(false);
 
   const handleLogout = async () => {
     await signOut(auth);
+    localStorage.removeItem("isAdmin");
     setIsGuest(false);
     setShowAdminLogin(false);
     setActiveScreen('inicio');
@@ -3647,7 +3708,14 @@ const [isGuest, setIsGuest] = useState(false);
       case 'ranking': return <RankingScreen posts={posts} onBack={() => setActiveScreen('inicio')} />;
       case 'convite': return <ConviteScreen onBack={() => setActiveScreen('inicio')} />;
       case 'notificacoes': return <NotificationsScreen notifications={notifications} onBack={() => setActiveScreen('inicio')} onMarkAsRead={handleMarkAsRead} />;
-      case 'admin': return <AdminScreen onBack={() => setActiveScreen('perfil')} currentUser={currentUser} />;
+      case 'admin': {
+        const isAdmin = currentUser?.role === 'admin' || localStorage.getItem("isAdmin") === "true";
+        if (!isAdmin) {
+          setActiveScreen('perfil');
+          return null;
+        }
+        return <AdminScreen onBack={() => setActiveScreen('perfil')} currentUser={currentUser} />;
+      }
       default: return <InicioScreen setScreen={handleScreenChange} user={user} />;
     }
   };
@@ -3668,7 +3736,22 @@ const [isGuest, setIsGuest] = useState(false);
         )}
       </AnimatePresence>
       <Header 
-        title={activeScreen.toUpperCase()} 
+        title={
+          activeScreen === 'inicio' ? 'Início' :
+          activeScreen === 'pelada' ? 'Pelada' :
+          activeScreen === 'live' ? 'Ao Vivo' :
+          activeScreen === 'competicoes' ? 'Competições' :
+          activeScreen === 'mercado' ? 'Mercado' :
+          activeScreen === 'perfil' ? 'Perfil' :
+          activeScreen === 'scout' ? 'Scout' :
+          activeScreen === 'reservas' ? 'Reservas' :
+          activeScreen === 'monetizacao' ? 'Ginga PRO' :
+          activeScreen === 'ranking' ? 'Ranking' :
+          activeScreen === 'convite' ? 'Convite' :
+          activeScreen === 'notificacoes' ? 'Notificações' :
+          activeScreen === 'admin' ? 'Área Admin' :
+          activeScreen.toUpperCase()
+        } 
         onScoutClick={() => handleScreenChange('scout')}
         onNotificationClick={() => handleScreenChange('notificacoes')}
         hasUnread={notifications.some(n => !n.isRead)}

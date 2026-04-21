@@ -110,6 +110,17 @@
         "createdAt": { "type": "number" }
       },
       "required": ["authorUid", "title", "price", "whatsapp"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Registo de gosto numa publicação",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "postId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "postId"]
     }
   },
   "firestore": {
@@ -140,6 +151,10 @@
     "/ads/{adId}": {
       "schema": "Ad",
       "description": "Coleção de anúncios do marketplace"
+    },
+    "/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Coleção de gostos em publicações"
     }
   }
 }

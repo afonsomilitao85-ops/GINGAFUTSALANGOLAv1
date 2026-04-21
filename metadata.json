@@ -1,8 +1,9 @@
 {
-  "name": "Remix: GINGAFUTSALANGOLAv1",
+  "name": "GINGAFUTSALANGOLAv1",
   "description": "Plataforma moderna para gestão e acompanhamento de futsal, com scout, mercado e transmissões ao vivo.",
   "requestFramePermissions": [
     "camera",
     "microphone"
-  ]
+  ],
+  "majorCapabilities": []
 }
