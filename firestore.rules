@@ -68,6 +68,17 @@ service cloud.firestore {
              data.postId is string && isValidId(data.postId);
     }
 
+    function isValidMatch(data) {
+      return data.keys().hasAll(['equipaA', 'equipaB', 'status']) &&
+             data.equipaA is string && data.equipaA.size() <= 100 &&
+             data.equipaB is string && data.equipaB.size() <= 100 &&
+             data.status in ['agendado', 'ao_vivo', 'finalizado', 'AGENDADO', 'AO VIVO', 'FINALIZADO'] &&
+             (!('golosA' in data) || (data.golosA is number)) &&
+             (!('golosB' in data) || (data.golosB is number)) &&
+             (!('tempo' in data) || (data.tempo is string && data.tempo.size() <= 20)) &&
+             (!('jornada' in data) || (data.jornada is number));
+    }
+
     // --- Collections ---
 
     // Users

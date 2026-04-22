@@ -87,6 +87,17 @@ interface Notification {
   avatar?: string;
 }
 
+interface Toast {
+  id: string;
+  title: string;
+  message: string;
+  type: 'golo' | 'inicio' | 'fim' | 'info';
+  equipaA: string;
+  equipaB: string;
+  golosA?: number;
+  golosB?: number;
+}
+
 interface Post {
   id: string;
   authorUid: string;
@@ -110,10 +121,11 @@ interface Match {
   golosA: number;
   golosB: number;
   tempo: string;
-  status: 'AO VIVO' | 'FINALIZADO';
+  status: 'agendado' | 'ao_vivo' | 'finalizado' | 'AGENDADO' | 'AO VIVO' | 'FINALIZADO';
   ligaId?: string;
   liga?: string;
   data?: any;
+  jornada?: number;
 }
 
 interface League {
@@ -131,6 +143,18 @@ interface Team {
   logo?: string;
   ligaId: string;
   createdBy: string;
+  // Campos de Classificação
+  vitorias?: number;
+  empates?: number;
+  derrotas?: number;
+  golosMarcados?: number;
+  golosSofridos?: number;
+  // Expansão Perfil
+  cidade?: string;
+  descricao?: string;
+  ajustePontos?: number;
+  ajusteGM?: number;
+  ajusteGS?: number;
 }
 
 interface LeaguePlayer {
@@ -139,6 +163,10 @@ interface LeaguePlayer {
   posicao: string;
   numero: number;
   equipaId: string;
+  // Expansão Atleta
+  golos?: number;
+  assistencias?: number;
+  foto?: string;
 }
 
 interface Product {
@@ -173,6 +201,8 @@ interface UserProfile {
   provider?: string;
   createdAt?: any;
   role?: 'admin' | 'user';
+  bio?: string;
+  localizacao?: string;
 }
 
 // --- Mock Data ---
@@ -1043,65 +1073,125 @@ const PeladaScreen = () => {
   );
 };
 
-const LiveScreen = ({ games }: { games: Match[] }) => (
-  <div className="space-y-6 pb-24">
-    <div className="px-6 pt-6">
-      <h2 className="text-2xl font-bold">Jogos em Directo</h2>
-    </div>
+const LiveScreen = ({ games }: { games: Match[] }) => {
+  const liveGames = games.filter(g => g.status?.toLowerCase() === 'ao_vivo' || g.status?.toLowerCase() === 'ao vivo');
+  const finishedGames = games.filter(g => g.status?.toLowerCase() === 'finalizado').slice(0, 5);
 
-    <div className="space-y-6 px-6">
-      {games.length === 0 ? (
-        <div className="text-center py-20 space-y-4 glass rounded-[2.5rem]">
-          <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto text-white/20">
-            <Video size={40} />
-          </div>
-          <p className="text-white/40 font-bold">Nenhum jogo ao vivo</p>
+  return (
+    <div className="space-y-6 pb-24">
+      <div className="px-6 pt-6 flex justify-between items-end">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter">Ginga <span className="text-accent underline">Live</span></h2>
+          <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Acompanha as emoções em tempo real</p>
         </div>
-      ) : (
-        games.map(game => (
-          <div key={game.id} className="glass rounded-[2rem] p-6 space-y-6 relative overflow-hidden">
-            <div className="flex justify-between items-center relative z-10">
-              <span className={`text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 ${game.status === 'AO VIVO' ? 'bg-red-600 animate-pulse' : 'bg-white/20'}`}>
-                {game.status === 'AO VIVO' ? '🔴 AO VIVO' : '🏁 FINALIZADO'}
-              </span>
-              <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{game.liga}</span>
+        <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
+          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+          <span className="text-red-500 text-[8px] font-black uppercase">{liveGames.length} Directos</span>
+        </div>
+      </div>
+
+      <div className="space-y-8 px-6">
+        {/* Live Games Section */}
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Jogos a Decorrer</h3>
+          {liveGames.length === 0 ? (
+            <div className="text-center py-20 space-y-4 glass rounded-[2.5rem] border border-white/5">
+              <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto text-white/20">
+                <Video size={40} className="opacity-20" />
+              </div>
+              <p className="text-white/20 font-bold uppercase text-[10px] tracking-widest">Sem jogos ao vivo no momento</p>
             </div>
-
-            <div className="flex justify-between items-center relative z-10">
-              <div className="text-center space-y-2 flex-1">
-                <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center border border-white/10">
-                  <span className="font-bold text-xl">{(game.equipaA || '').substring(0, 3).toUpperCase()}</span>
+          ) : (
+            liveGames.map(game => (
+              <div key={game.id} className="glass rounded-[2.5rem] p-8 space-y-8 relative overflow-hidden group border border-white/5 shadow-2xl">
+                {/* Status Indicator */}
+                <div className="flex justify-between items-center relative z-10">
+                  <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full shadow-lg shadow-red-600/20 animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                    <span className="text-white text-[10px] font-black uppercase tracking-widest">AO VIVO</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{game.liga || 'Ginga Cup'}</p>
+                    <p className="text-accent text-[8px] font-black uppercase tracking-widest mt-1">Jornada {game.jornada || 1}</p>
+                  </div>
                 </div>
-                <p className="font-bold text-sm">{game.equipaA}</p>
-              </div>
 
-              <div className="flex flex-col items-center gap-1 px-4">
-                <div className="text-4xl font-black italic tracking-widest">
-                  {game.golosA} <span className="text-accent">-</span> {game.golosB}
-                </div>
-                <span className="text-[10px] font-bold text-white/40">{game.tempo}</span>
-              </div>
+                {/* Scoreboard */}
+                <div className="flex justify-between items-center relative z-10 gap-4">
+                  <div className="text-center space-y-3 flex-1 flex flex-col items-center">
+                    <div className="w-20 h-20 rounded-[2rem] glass p-4 flex items-center justify-center border border-white/10 shadow-xl group-hover:scale-110 transition-transform">
+                      <span className="font-black italic text-2xl text-accent">{(game.equipaA || '').substring(0, 3).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <p className="font-black italic text-sm uppercase leading-tight">{game.equipaA}</p>
+                      <p className="text-[8px] font-bold text-white/20 uppercase mt-1">Equipa A</p>
+                    </div>
+                  </div>
 
-              <div className="text-center space-y-2 flex-1">
-                <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center border border-white/10">
-                  <span className="font-bold text-xl">{(game.equipaB || '').substring(0, 3).toUpperCase()}</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="text-5xl font-black italic tracking-tighter flex items-center gap-4">
+                      <span>{game.golosA}</span>
+                      <span className="text-accent opacity-50">-</span>
+                      <span>{game.golosB}</span>
+                    </div>
+                    <div className="px-4 py-1.5 glass rounded-full border border-white/10 mt-2">
+                       <span className="text-[10px] font-black text-accent italic">{game.tempo || "00'"}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-3 flex-1 flex flex-col items-center">
+                    <div className="w-20 h-20 rounded-[2rem] glass p-4 flex items-center justify-center border border-white/10 shadow-xl group-hover:scale-110 transition-transform">
+                      <span className="font-black italic text-2xl text-accent">{(game.equipaB || '').substring(0, 3).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <p className="font-black italic text-sm uppercase leading-tight">{game.equipaB}</p>
+                      <p className="text-[8px] font-bold text-white/20 uppercase mt-1">Equipa B</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="font-bold text-sm">{game.equipaB}</p>
+
+                {/* Watch Button */}
+                <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 relative z-10">
+                  <PlayCircle size={18} className="text-accent" />
+                  Assistir Transmissão
+                </button>
+
+                {/* Background Decoration */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/5 blur-[100px] rounded-full -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 blur-[100px] rounded-full -ml-32 -mb-32" />
               </div>
+            ))
+          )}
+        </div>
+
+        {/* Finished Games Section */}
+        {finishedGames.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Resultados Recentes</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {finishedGames.map(game => (
+                <div key={game.id} className="glass p-5 rounded-3xl flex items-center justify-between border border-white/5 opacity-80 hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-4 flex-1">
+                    <span className="text-[10px] font-black italic text-white/80 w-16 truncate">{game.equipaA}</span>
+                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-xl">
+                      <span className="font-black text-xs">{game.golosA}</span>
+                      <span className="text-[8px] text-white/20">-</span>
+                      <span className="font-black text-xs">{game.golosB}</span>
+                    </div>
+                    <span className="text-[10px] font-black italic text-white/80 w-16 truncate text-right">{game.equipaB}</span>
+                  </div>
+                  <div className="flex items-center gap-2 pl-4 border-l border-white/10 ml-4">
+                    <span className="text-[8px] font-bold text-white/20 uppercase">FIM</span>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-3 text-sm font-bold transition-colors flex items-center justify-center gap-2">
-              <PlayCircle size={18} className="text-accent" />
-              {game.status === 'AO VIVO' ? 'ASSISTIR TRANSMISSÃO' : 'VER MELHORES MOMENTOS'}
-            </button>
-            
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-accent/5 blur-3xl rounded-full" />
           </div>
-        ))
-      )}
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const CompeticoesScreen = ({ leagues, teams, players, matches }: { 
   leagues: League[], 
@@ -1112,6 +1202,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [activeTab, setActiveTab] = useState<'tabela' | 'jogos' | 'equipas'>('tabela');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [selectedJornada, setSelectedJornada] = useState<number | 'todas'>('todas');
 
   const calculateStandings = (leagueId: string) => {
     const standings = teams.filter(t => t.ligaId === leagueId).map(team => ({
@@ -1126,7 +1217,10 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
       points: 0
     }));
 
-    const leagueMatches = matches.filter(m => m.ligaId === leagueId && m.status === 'FINALIZADO');
+    const leagueMatches = matches.filter(m => 
+      m.ligaId === leagueId && 
+      (m.status?.toLowerCase() === 'finalizado')
+    );
 
     leagueMatches.forEach(match => {
       const teamA = standings.find(t => t.id === match.equipaAId);
@@ -1158,10 +1252,23 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
     });
 
     standings.forEach(t => {
+      // Aplicar Ajustes Manuais
+      const adjPoints = t.ajustePontos || 0;
+      const adjGM = t.ajusteGM || 0;
+      const adjGS = t.ajusteGS || 0;
+
+      t.points += adjPoints;
+      t.goalsFor += adjGM;
+      t.goalsAgainst += adjGS;
       t.goalDifference = t.goalsFor - t.goalsAgainst;
     });
 
-    return standings.sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
+    // Ordenação Profissional: Pontos > DG > GM
+    return standings.sort((a, b) => 
+      b.points - a.points || 
+      b.goalDifference - a.goalDifference || 
+      b.goalsFor - a.goalsFor
+    );
   };
 
   const leagueTeams = teams.filter(t => t.ligaId === selectedLeague?.id);
@@ -1170,21 +1277,65 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
   const standings = selectedLeague ? calculateStandings(selectedLeague.id) : [];
 
   if (selectedTeam) {
+    const teamStats = standings.find(t => t.id === selectedTeam.id);
+    const lastMatches = matches
+      .filter(m => 
+        (m.equipaAId === selectedTeam.id || m.equipaBId === selectedTeam.id) && 
+        (m.status?.toLowerCase() === 'finalizado' || m.status === 'FINALIZADO')
+      )
+      .sort((a,b) => b.data - a.data)
+      .slice(0, 5);
+
     return (
       <div className="px-6 py-8 space-y-8 pb-32">
-        <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedTeam(null)} className="p-2 glass rounded-xl text-white/40 shadow-lg">
-            <ChevronRight size={20} className="rotate-180" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden glass p-1 border border-white/10">
-              <img src={selectedTeam.logo || `https://picsum.photos/seed/${selectedTeam.nome}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSelectedTeam(null)} className="p-2 glass rounded-xl text-white/40 shadow-lg">
+              <ChevronRight size={20} className="rotate-180" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden glass p-1 border border-white/10">
+                <img src={selectedTeam.logo || `https://picsum.photos/seed/${selectedTeam.nome}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight italic">{selectedTeam.nome}</h2>
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight italic">{selectedTeam.nome}</h2>
           </div>
         </div>
 
         <div className="space-y-6">
+          {/* Team Info Banner */}
+          <div className="glass p-6 rounded-[2.5rem] border border-white/5 space-y-4">
+            <div className="flex items-center gap-2">
+              <MapPin size={14} className="text-accent" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{selectedTeam.cidade || 'LUANDA, ANGOLA'}</span>
+            </div>
+            {selectedTeam.descricao && (
+              <p className="text-xs text-white/60 leading-relaxed font-medium italic">"{selectedTeam.descricao}"</p>
+            )}
+            
+            {/* Form / Last Games */}
+            <div className="space-y-3 pt-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Forma Recente</p>
+              <div className="flex gap-2">
+                {lastMatches.map(m => {
+                  const isEquipaA = m.equipaAId === selectedTeam.id;
+                  const win = isEquipaA ? m.golosA > m.golosB : m.golosB > m.golosA;
+                  const draw = m.golosA === m.golosB;
+                  return (
+                    <div 
+                      key={m.id} 
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-lg ${win ? 'bg-green-500 text-white' : draw ? 'bg-yellow-500 text-white' : 'bg-red-500 text-white'}`}
+                      title={`${m.equipaA} ${m.golosA} - ${m.golosB} ${m.equipaB}`}
+                    >
+                      {win ? 'V' : draw ? 'E' : 'D'}
+                    </div>
+                  );
+                })}
+                {lastMatches.length === 0 && <p className="text-[10px] font-bold text-white/20 italic">Sem histórico disponível</p>}
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-between items-center px-1">
             <h3 className="text-xs font-black uppercase text-accent tracking-[0.2em]">Plantel Oficial</h3>
             <span className="text-[10px] font-bold text-white/40">{teamPlayers.length} ATLETAS</span>
@@ -1192,17 +1343,37 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
 
           <div className="grid grid-cols-1 gap-3">
             {teamPlayers.sort((a,b) => (a.numero || 0) - (b.numero || 0)).map(player => (
-              <div key={player.id} className="glass p-5 rounded-3xl flex items-center justify-between border border-white/5 group hover:border-accent/30 transition-all shadow-xl">
+              <div key={player.id} className="glass p-5 rounded-3xl flex items-center justify-between border border-white/5 group hover:border-accent/30 transition-all shadow-xl overflow-hidden relative">
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-accent/20 rounded-2xl flex items-center justify-center text-accent font-black italic text-xl shadow-lg shadow-accent/10 border border-accent/20">
-                    {player.numero || '??'}
+                  <div className="w-12 h-12 bg-accent/20 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg shadow-accent/10 border border-accent/20 relative group-hover:scale-110 transition-transform">
+                    {player.foto ? (
+                      <img src={player.foto} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="text-accent font-black italic text-xl">{player.numero || '??'}</span>
+                    )}
                   </div>
                   <div>
                     <p className="font-bold text-base">{player.nome}</p>
-                    <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">{player.posicao}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">{player.posicao} {player.foto ? `• #${player.numero}` : ''}</p>
+                      {(player.golos || 0) > 0 && (
+                        <div className="flex items-center gap-1 bg-accent/10 px-2 py-0.5 rounded-full">
+                          <Trophy size={8} className="text-accent" />
+                          <span className="text-[8px] font-black text-accent">{player.golos}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <ShieldCheck size={18} className="text-accent/40" />
+                <div className="flex flex-col items-end gap-1">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-white/60">{player.golos || 0} G</p>
+                    <p className="text-[8px] font-bold text-white/20">{player.assistencias || 0} A</p>
+                  </div>
+                </div>
+                
+                {/* Decoration */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 blur-2xl rounded-full -mr-12 -mt-12" />
               </div>
             ))}
             {teamPlayers.length === 0 && (
@@ -1265,31 +1436,52 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
                     <span>SG</span>
                   </div>
                   <div className="divide-y divide-white/5">
-                    {standings.map((team, idx) => (
-                      <div 
-                        key={team.id} 
-                        className="grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 items-center text-center group hover:bg-white/5 transition-colors cursor-pointer"
-                        onClick={() => setSelectedTeam(team)}
-                      >
-                        <span className={`font-black italic text-xs ${idx < 4 ? 'text-accent' : idx >= standings.length - 2 ? 'text-red-500' : 'text-white/40'}`}>
-                          {idx + 1}
-                        </span>
-                        <div className="flex items-center gap-2 text-left min-w-0">
-                          <img src={team.logo || `https://picsum.photos/seed/${team.nome}/40/40`} className="w-5 h-5 rounded-md object-contain shrink-0" referrerPolicy="no-referrer" />
-                          <span className="font-bold text-[11px] truncate">{team.nome}</span>
+                    {standings.map((team, idx) => {
+                      const isLeader = idx === 0;
+                      const isLast = idx === standings.length - 1 && standings.length > 1;
+                      return (
+                        <div 
+                          key={team.id} 
+                          className={`grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 items-center text-center group hover:bg-white/5 transition-colors cursor-pointer ${isLeader ? 'bg-green-500/5' : isLast ? 'bg-red-500/5' : ''}`}
+                          onClick={() => setSelectedTeam(team)}
+                        >
+                          <span className={`font-black italic text-xs ${isLeader ? 'text-green-500' : isLast ? 'text-red-500' : idx < 4 ? 'text-accent' : 'text-white/40'}`}>
+                            {idx + 1}
+                          </span>
+                          <div className="flex items-center gap-2 text-left min-w-0">
+                            <img src={team.logo || `https://picsum.photos/seed/${team.nome}/40/40`} className="w-5 h-5 rounded-md object-contain shrink-0" referrerPolicy="no-referrer" />
+                            <span className="font-bold text-[11px] truncate">{team.nome}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs font-black italic text-accent">{team.points}</span>
+                            {team.ajustePontos !== 0 && (
+                              <span className={`text-[8px] font-bold ${team.ajustePontos > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {team.ajustePontos > 0 ? `+${team.ajustePontos}` : team.ajustePontos}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-medium text-white/60">{team.played}</span>
+                          <span className="text-[10px] font-medium text-white/60">{team.won}</span>
+                          <span className="text-[10px] font-medium text-white/60">{team.drawn}</span>
+                          <span className="text-[10px] font-medium text-white/60">{team.lost}</span>
+                          <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-medium text-white/60">{team.goalsFor}</span>
+                            {team.ajusteGM !== 0 && (
+                              <span className="text-[7px] font-bold text-green-500/60 leading-none">+{team.ajusteGM}</span>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-medium text-white/60">{team.goalsAgainst}</span>
+                            {team.ajusteGS !== 0 && (
+                              <span className="text-[7px] font-bold text-red-500/60 leading-none">+{team.ajusteGS}</span>
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-bold ${team.goalDifference > 0 ? 'text-green-500' : team.goalDifference < 0 ? 'text-red-500' : 'text-white/40'}`}>
+                            {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}
+                          </span>
                         </div>
-                        <span className="text-xs font-black italic text-accent">{team.points}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.played}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.won}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.drawn}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.lost}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.goalsFor}</span>
-                        <span className="text-[10px] font-medium text-white/60">{team.goalsAgainst}</span>
-                        <span className={`text-[10px] font-bold ${team.goalDifference > 0 ? 'text-green-500' : team.goalDifference < 0 ? 'text-red-500' : 'text-white/40'}`}>
-                          {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {standings.length === 0 && (
                       <p className="text-center py-10 text-white/20 text-xs font-bold font-black uppercase italic">Nenhuma equipa registada</p>
                     )}
@@ -1303,39 +1495,97 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
           )}
 
           {activeTab === 'jogos' && (
-            <div className="space-y-4">
+            <div className="space-y-8">
+              {/* Jornada Filter */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
+                <button 
+                  onClick={() => setSelectedJornada('todas')}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${selectedJornada === 'todas' ? 'bg-accent text-white' : 'glass text-white/40 border border-white/5'}`}
+                >
+                  Todas
+                </button>
+                {Array.from(new Set(leagueMatches.map(m => m.jornada || 1))).sort((a,b) => a-b).map(j => (
+                  <button 
+                    key={j}
+                    onClick={() => setSelectedJornada(j)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${selectedJornada === j ? 'bg-accent text-white' : 'glass text-white/40 border border-white/5'}`}
+                  >
+                    J{j}
+                  </button>
+                ))}
+              </div>
+
                {leagueMatches.length === 0 ? (
                 <div className="text-center py-20 text-white/20 glass rounded-[2rem] border border-white/5">
                   <Calendar size={40} className="mx-auto opacity-10 mb-3" />
                   <p className="text-sm font-bold uppercase tracking-widest">Sem jogos agendados</p>
                 </div>
               ) : (
-                leagueMatches.sort((a,b) => b.data - a.data).map(match => (
-                  <div key={match.id} className="glass p-6 rounded-[2.5rem] space-y-4 border border-white/5 relative overflow-hidden group shadow-xl">
-                    <div className="flex justify-between items-center">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full ${match.status === 'AO VIVO' ? 'bg-red-500/20 text-red-500 animate-pulse' : 'bg-white/5 text-white/40'} uppercase tracking-widest`}>
-                        {match.status}
-                      </span>
-                      <span className="text-[10px] font-black text-accent uppercase tracking-widest">{match.tempo}</span>
+                Object.entries(
+                  leagueMatches
+                    .filter(m => selectedJornada === 'todas' || (m.jornada || 1) === selectedJornada)
+                    .reduce((acc, match) => {
+                      const j = match.jornada || 1;
+                      if (!acc[j]) acc[j] = [];
+                      acc[j].push(match);
+                      return acc;
+                    }, {} as Record<number, Match[]>)
+                )
+                .sort(([a], [b]) => Number(b) - Number(a))
+                .map(([jornada, jornadaMatches]) => (
+                  <div key={jornada} className="space-y-4">
+                    <div className="flex items-center gap-3 px-2">
+                      <div className="h-[1px] flex-1 bg-white/10" />
+                      <h3 className="text-[10px] font-black uppercase text-accent tracking-[0.3em]">Jornada {jornada}</h3>
+                      <div className="h-[1px] flex-1 bg-white/10" />
                     </div>
-                    <div className="flex justify-between items-center gap-4 text-center">
-                      <div className="flex-1 space-y-2">
-                        <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg">
-                           <img src={teams.find(t => t.id === match.equipaAId)?.logo || `https://picsum.photos/seed/${match.equipaA}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                        <p className="font-black italic text-[10px] uppercase truncate">{match.equipaA}</p>
-                      </div>
-                      <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner">
-                        <span className={`text-3xl font-black italic leading-none ${match.status === 'AO VIVO' ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
-                        <span className="text-white/10 font-black text-xl">-</span>
-                        <span className={`text-3xl font-black italic leading-none ${match.status === 'AO VIVO' ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg">
-                          <img src={teams.find(t => t.id === match.equipaBId)?.logo || `https://picsum.photos/seed/${match.equipaB}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                        <p className="font-black italic text-[10px] uppercase truncate">{match.equipaB}</p>
-                      </div>
+                    
+                    <div className="space-y-4">
+                      {jornadaMatches.map(match => {
+                        const status = match.status?.toLowerCase() || 'finalizado';
+                        const isLive = status === 'ao_vivo' || status === 'ao vivo';
+                        const isScheduled = status === 'agendado';
+
+                        return (
+                          <div key={match.id} className={`glass p-6 rounded-[2.5rem] space-y-4 border relative overflow-hidden group shadow-xl transition-all ${isLive ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'}`}>
+                            {/* Live Badge Background */}
+                            {isLive && (
+                              <div className="absolute top-0 right-0 p-1 opacity-20">
+                                <div className="bg-red-500 w-32 h-32 rounded-full blur-3xl -mr-16 -mt-16" />
+                              </div>
+                            )}
+
+                            <div className="flex justify-between items-center relative z-10">
+                              <div className="flex items-center gap-2">
+                                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isLive ? 'bg-red-500 text-white animate-pulse' : isScheduled ? 'bg-yellow-500/20 text-yellow-500' : 'bg-white/10 text-white/40'}`}>
+                                  <span>{isLive ? '🔴 AO VIVO' : isScheduled ? '🟡 AGENDADO' : '⚫ FINAL'}</span>
+                                </div>
+                                {isLive && <span className="text-[9px] font-black text-red-500 animate-pulse">{match.tempo}</span>}
+                              </div>
+                              <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">{match.liga}</span>
+                            </div>
+                            <div className="flex justify-between items-center gap-4 text-center">
+                              <div className="flex-1 space-y-2">
+                                <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
+                                  <img src={teams.find(t => t.id === match.equipaAId)?.logo || `https://picsum.photos/seed/${match.equipaA}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                                <p className="font-black italic text-[10px] uppercase truncate">{match.equipaA}</p>
+                              </div>
+                              <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner">
+                                <span className={`text-3xl font-black italic leading-none ${status === 'ao_vivo' || status === 'ao vivo' ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
+                                <span className="text-white/10 font-black text-xl">-</span>
+                                <span className={`text-3xl font-black italic leading-none ${status === 'ao_vivo' || status === 'ao vivo' ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
+                                  <img src={teams.find(t => t.id === match.equipaBId)?.logo || `https://picsum.photos/seed/${match.equipaB}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                </div>
+                                <p className="font-black italic text-[10px] uppercase truncate">{match.equipaB}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))
@@ -1749,6 +1999,8 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
   const [isEditing, setIsEditing] = useState(false);
   const [nome, setNome] = useState(user.nome);
   const [bairro, setBairro] = useState(user.bairro || '');
+  const [bio, setBio] = useState(user.bio || '');
+  const [localizacao, setLocalizacao] = useState(user.localizacao || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1756,6 +2008,8 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
   useEffect(() => {
     setNome(user.nome);
     setBairro(user.bairro || '');
+    setBio(user.bio || '');
+    setLocalizacao(user.localizacao || '');
   }, [user]);
 
   const handleSave = async () => {
@@ -1764,7 +2018,9 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         nome: nome.trim(),
-        bairro: bairro.trim()
+        bairro: bairro.trim(),
+        bio: bio.trim(),
+        localizacao: localizacao.trim()
       });
       setIsEditing(false);
     } catch (error) {
@@ -1909,6 +2165,19 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
                   placeholder="Teu Bairro"
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center text-sm focus:outline-none focus:border-accent transition-all"
                 />
+                <input 
+                  type="text" 
+                  value={localizacao}
+                  onChange={(e) => setLocalizacao(e.target.value)}
+                  placeholder="Cidade / Localização"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center text-sm focus:outline-none focus:border-accent transition-all"
+                />
+                <textarea 
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Fala sobre ti..."
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center text-sm focus:outline-none focus:border-accent transition-all min-h-[80px]"
+                />
                 <div className="flex gap-2">
                   <button 
                     onClick={handleSave}
@@ -1937,7 +2206,12 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
                     </button>
                   )}
                 </div>
-                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{user.bairro || 'Luanda, AO'}</p>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
+                  {user.bairro || 'Ginga Player'} • {user.localizacao || 'Luanda, AO'}
+                </p>
+                {user.bio && (
+                  <p className="text-white/60 text-xs italic max-w-xs mx-auto px-4 mt-2">"{user.bio}"</p>
+                )}
               </>
             )}
           </div>
@@ -2354,18 +2628,27 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [newTeam, setNewTeam] = useState({ nome: '', ligaId: '', logo: '' });
+  const [newTeam, setNewTeam] = useState({ 
+    nome: '', 
+    ligaId: '', 
+    logo: '', 
+    cidade: '', 
+    descricao: '',
+    ajustePontos: 0,
+    ajusteGM: 0,
+    ajusteGS: 0
+  });
 
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<LeaguePlayer | null>(null);
-  const [newPlayer, setNewPlayer] = useState({ nome: '', posicao: 'ALA', numero: 10, equipaId: '' });
+  const [newPlayer, setNewPlayer] = useState({ nome: '', posicao: 'ALA', numero: 10, equipaId: '', golos: 0, assistencias: 0, foto: '' });
 
   const [showAddMatch, setShowAddMatch] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [newMatch, setNewMatch] = useState({ 
     equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
-    golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO' as 'AGENDADO' | 'AO VIVO' | 'FINALIZADO',
-    ligaId: '', liga: ''
+    golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado' as any,
+    ligaId: '', liga: '', jornada: 1
   });
 
   useEffect(() => {
@@ -2450,21 +2733,33 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const handleCreateTeam = async () => {
     if (!newTeam.nome || !newTeam.ligaId || !currentUser) return;
     try {
+      const teamData = {
+        nome: newTeam.nome,
+        ligaId: newTeam.ligaId,
+        logo: newTeam.logo || `https://picsum.photos/seed/${newTeam.nome}/200/200`,
+        cidade: newTeam.cidade || 'Luanda',
+        descricao: newTeam.descricao || '',
+        ajustePontos: Number(newTeam.ajustePontos) || 0,
+        ajusteGM: Number(newTeam.ajusteGM) || 0,
+        ajusteGS: Number(newTeam.ajusteGS) || 0,
+        createdBy: currentUser.uid
+      };
+
       if (editingTeam) {
-        await updateDoc(doc(db, 'teams', editingTeam.id), {
-          nome: newTeam.nome,
-          ligaId: newTeam.ligaId,
-          logo: newTeam.logo
-        });
+        await updateDoc(doc(db, 'teams', editingTeam.id), teamData);
       } else {
-        await addDoc(collection(db, 'teams'), {
-          nome: newTeam.nome,
-          ligaId: newTeam.ligaId,
-          logo: newTeam.logo || `https://picsum.photos/seed/${newTeam.nome}/200/200`,
-          createdBy: currentUser.uid
-        });
+        await addDoc(collection(db, 'teams'), teamData);
       }
-      setNewTeam({ nome: '', ligaId: '', logo: '' });
+      setNewTeam({ 
+        nome: '', 
+        ligaId: '', 
+        logo: '', 
+        cidade: '', 
+        descricao: '',
+        ajustePontos: 0,
+        ajusteGM: 0,
+        ajusteGS: 0
+      });
       setShowAddTeam(false);
       setEditingTeam(null);
     } catch (error) {
@@ -2484,22 +2779,22 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const handleCreatePlayer = async () => {
     if (!newPlayer.nome || !newPlayer.equipaId) return;
     try {
+      const playerData = {
+        nome: newPlayer.nome,
+        posicao: newPlayer.posicao,
+        numero: newPlayer.numero,
+        equipaId: newPlayer.equipaId,
+        golos: newPlayer.golos || 0,
+        assistencias: newPlayer.assistencias || 0,
+        foto: newPlayer.foto || ''
+      };
+
       if (editingPlayer) {
-        await updateDoc(doc(db, 'league_players', editingPlayer.id), {
-          nome: newPlayer.nome,
-          posicao: newPlayer.posicao,
-          numero: newPlayer.numero,
-          equipaId: newPlayer.equipaId
-        });
+        await updateDoc(doc(db, 'league_players', editingPlayer.id), playerData);
       } else {
-        await addDoc(collection(db, 'league_players'), {
-          nome: newPlayer.nome,
-          posicao: newPlayer.posicao,
-          numero: newPlayer.numero,
-          equipaId: newPlayer.equipaId
-        });
+        await addDoc(collection(db, 'league_players'), playerData);
       }
-      setNewPlayer({ nome: '', posicao: 'ALA', numero: 10, equipaId: '' });
+      setNewPlayer({ nome: '', posicao: 'ALA', numero: 10, equipaId: '', golos: 0, assistencias: 0, foto: '' });
       setShowAddPlayer(false);
       setEditingPlayer(null);
     } catch (error) {
@@ -2519,6 +2814,17 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const handleCreateMatch = async () => {
     if (!newMatch.equipaAId || !newMatch.equipaBId || !newMatch.ligaId) return;
     
+    // Validações Anti-Erro (GingaFutsal Evolution)
+    if (newMatch.equipaAId === newMatch.equipaBId) {
+      alert("As equipas não podem ser iguais.");
+      return;
+    }
+
+    if (newMatch.golosA < 0 || newMatch.golosB < 0) {
+      alert("Resultado inválido. Os golos não podem ser negativos.");
+      return;
+    }
+
     const e1 = teams.find(t => t.id === newMatch.equipaAId);
     const e2 = teams.find(t => t.id === newMatch.equipaBId);
     const l = leagues.find(l => l.id === newMatch.ligaId);
@@ -2526,38 +2832,30 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     if (!e1 || !e2 || !l) return;
 
     try {
+      const matchData = {
+        equipaA: e1.nome,
+        equipaB: e2.nome,
+        equipaAId: e1.id,
+        equipaBId: e2.id,
+        golosA: newMatch.golosA,
+        golosB: newMatch.golosB,
+        tempo: newMatch.tempo,
+        status: newMatch.status,
+        jornada: newMatch.jornada || 1,
+        ligaId: l.id,
+        liga: l.nome,
+        data: editingMatch ? editingMatch.data : Date.now()
+      };
+
       if (editingMatch) {
-        await updateDoc(doc(db, 'matches', editingMatch.id), {
-          equipaA: e1.nome,
-          equipaB: e2.nome,
-          equipaAId: e1.id,
-          equipaBId: e2.id,
-          golosA: newMatch.golosA,
-          golosB: newMatch.golosB,
-          tempo: newMatch.tempo,
-          status: newMatch.status,
-          ligaId: l.id,
-          liga: l.nome
-        });
+        await updateDoc(doc(db, 'matches', editingMatch.id), matchData);
       } else {
-        await addDoc(collection(db, 'matches'), {
-          equipaA: e1.nome,
-          equipaB: e2.nome,
-          equipaAId: e1.id,
-          equipaBId: e2.id,
-          golosA: newMatch.golosA,
-          golosB: newMatch.golosB,
-          tempo: newMatch.tempo,
-          status: newMatch.status,
-          ligaId: l.id,
-          liga: l.nome,
-          data: Date.now()
-        });
+        await addDoc(collection(db, 'matches'), matchData);
       }
       setNewMatch({ 
         equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
-        golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO',
-        ligaId: '', liga: ''
+        golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado',
+        ligaId: '', liga: '', jornada: 1
       });
       setShowAddMatch(false);
       setEditingMatch(null);
@@ -2572,6 +2870,14 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       await deleteDoc(doc(db, 'matches', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `matches/${id}`);
+    }
+  };
+
+  const handleQuickMatchUpdate = async (id: string, updates: Partial<Match>) => {
+    try {
+      await updateDoc(doc(db, 'matches', id), updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `matches/${id}`);
     }
   };
 
@@ -2833,7 +3139,20 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                   <div className="flex justify-between items-center px-1">
                     <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Equipas</h3>
                     <button 
-                      onClick={() => { setShowAddTeam(!showAddTeam); setEditingTeam(null); setNewTeam({ nome: '', ligaId: '', logo: '' }); }} 
+                      onClick={() => { 
+                        setShowAddTeam(!showAddTeam); 
+                        setEditingTeam(null); 
+                        setNewTeam({ 
+                          nome: '', 
+                          ligaId: '', 
+                          logo: '', 
+                          cidade: '', 
+                          descricao: '',
+                          ajustePontos: 0,
+                          ajusteGM: 0,
+                          ajusteGS: 0
+                        }); 
+                      }} 
                       className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
                     >
                       {showAddTeam ? <X size={12} /> : <Plus size={12} />}
@@ -2861,6 +3180,47 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
                         value={newTeam.logo} onChange={e => setNewTeam({...newTeam, logo: e.target.value})}
                       />
+                      <input 
+                        type="text" placeholder="Cidade" 
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                        value={newTeam.cidade} onChange={e => setNewTeam({...newTeam, cidade: e.target.value})}
+                      />
+                      <textarea 
+                        placeholder="Descrição da Equipa" 
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none min-h-[80px]"
+                        value={newTeam.descricao} onChange={e => setNewTeam({...newTeam, descricao: e.target.value})}
+                      />
+
+                      <div className="pt-2 space-y-3">
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Ajustes de Classificação (Apenas Admin)</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Pts Extra</label>
+                            <input 
+                              type="number" 
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                              value={newTeam.ajustePontos} onChange={e => setNewTeam({...newTeam, ajustePontos: parseInt(e.target.value) || 0})}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GM Extra</label>
+                            <input 
+                              type="number" 
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                              value={newTeam.ajusteGM} onChange={e => setNewTeam({...newTeam, ajusteGM: parseInt(e.target.value) || 0})}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GS Extra</label>
+                            <input 
+                              type="number" 
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                              value={newTeam.ajusteGS} onChange={e => setNewTeam({...newTeam, ajusteGS: parseInt(e.target.value) || 0})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <button onClick={handleCreateTeam} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
                         {editingTeam ? 'GUARDAR ALTERAÇÕES' : 'CRIAR EQUIPA'}
                       </button>
@@ -2879,7 +3239,20 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => { setEditingTeam(t); setNewTeam({ nome: t.nome, ligaId: t.ligaId, logo: t.logo || '' }); setShowAddTeam(true); }}
+                            onClick={() => { 
+                              setEditingTeam(t); 
+                              setNewTeam({ 
+                                nome: t.nome, 
+                                ligaId: t.ligaId, 
+                                logo: t.logo || '', 
+                                cidade: t.cidade || '', 
+                                descricao: t.descricao || '',
+                                ajustePontos: t.ajustePontos || 0,
+                                ajusteGM: t.ajusteGM || 0,
+                                ajusteGS: t.ajusteGS || 0
+                              }); 
+                              setShowAddTeam(true); 
+                            }}
                             className="p-2 px-3 bg-white/5 text-white/40 rounded-lg hover:text-accent transition-colors"
                           >
                             <Edit size={14} />
@@ -2923,22 +3296,51 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           value={newPlayer.numero} onChange={e => setNewPlayer({...newPlayer, numero: parseInt(e.target.value) || 0})}
                         />
                       </div>
-                      <select 
-                        className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                        value={newPlayer.posicao} onChange={e => setNewPlayer({...newPlayer, posicao: e.target.value})}
-                      >
-                        <option value="GOL">GUARDA-REDES</option>
-                        <option value="FIXO">FIXO</option>
-                        <option value="ALA">ALA</option>
-                        <option value="PIVÔ">PIVÔ</option>
-                      </select>
-                      <select 
-                        className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                        value={newPlayer.equipaId} onChange={e => setNewPlayer({...newPlayer, equipaId: e.target.value})}
-                      >
-                        <option value="">Escolher Equipa</option>
-                        {teams.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                      </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select 
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
+                          value={newPlayer.posicao} onChange={e => setNewPlayer({...newPlayer, posicao: e.target.value})}
+                        >
+                          <option value="GOL">GUARDA-REDES</option>
+                          <option value="FIXO">FIXO</option>
+                          <option value="ALA">ALA</option>
+                          <option value="PIVÔ">PIVÔ</option>
+                        </select>
+                        <select 
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
+                          value={newPlayer.equipaId} onChange={e => setNewPlayer({...newPlayer, equipaId: e.target.value})}
+                        >
+                          <option value="">Escolher Equipa</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Golos</label>
+                          <input 
+                            type="number" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                            value={newPlayer.golos} onChange={e => setNewPlayer({...newPlayer, golos: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Assist.</label>
+                          <input 
+                            type="number" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                            value={newPlayer.assistencias} onChange={e => setNewPlayer({...newPlayer, assistencias: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Foto URL</label>
+                          <input 
+                            type="text" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                            value={newPlayer.foto} onChange={e => setNewPlayer({...newPlayer, foto: e.target.value})}
+                          />
+                        </div>
+                      </div>
                       <button onClick={handleCreatePlayer} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
                         {editingPlayer ? 'GUARDAR ALTERAÇÕES' : 'ADICIONAR JOGADOR'}
                       </button>
@@ -2959,7 +3361,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => { setEditingPlayer(p); setNewPlayer({ nome: p.nome, posicao: p.posicao, numero: p.numero, equipaId: p.equipaId }); setShowAddPlayer(true); }}
+                            onClick={() => { setEditingPlayer(p); setNewPlayer({ nome: p.nome, posicao: p.posicao, numero: p.numero, equipaId: p.equipaId, golos: p.golos || 0, assistencias: p.assistencias || 0, foto: p.foto || '' }); setShowAddPlayer(true); }}
                             className="p-2 px-3 bg-white/5 text-white/40 rounded-lg hover:text-accent transition-colors"
                           >
                             <Edit size={14} />
@@ -3051,11 +3453,20 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                             className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
                             value={newMatch.status} onChange={e => setNewMatch({...newMatch, status: e.target.value as any})}
                           >
-                            <option value="AGENDADO">AGENDADO</option>
-                            <option value="AO VIVO">AO VIVO</option>
-                            <option value="FINALIZADO">FINALIZADO</option>
+                            <option value="agendado">🟡 AGENDADO</option>
+                            <option value="ao_vivo">🔴 AO VIVO</option>
+                            <option value="finalizado">⚫ FINALIZADO</option>
                           </select>
                         </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Jornada</label>
+                        <input 
+                          type="number" 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                          value={newMatch.jornada} onChange={e => setNewMatch({...newMatch, jornada: parseInt(e.target.value) || 1})}
+                        />
                       </div>
 
                       <button onClick={handleCreateMatch} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
@@ -3072,7 +3483,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           <span className="text-[8px] text-white/30 font-bold uppercase">{m.liga}</span>
                           <div className="flex gap-1">
                              <button 
-                              onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga }); setShowAddMatch(true); }}
+                              onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1 }); setShowAddMatch(true); }}
                               className="p-1.5 bg-white/5 text-white/40 rounded-lg hover:text-accent"
                             >
                               <Edit size={12} />
@@ -3097,6 +3508,51 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                         <div className="text-center">
                            <p className="text-[10px] font-black text-white/40 italic">{m.tempo}</p>
+                        </div>
+
+                        {/* Quick Controls */}
+                        <div className="pt-2 border-t border-white/5 flex flex-wrap gap-2 justify-center">
+                          {m.status?.toLowerCase() === 'agendado' && (
+                            <button 
+                              onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: '0\'' })}
+                              className="px-3 py-1.5 bg-green-500/20 text-green-500 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5"
+                            >
+                              <Video size={12} />
+                              Iniciar Jogo
+                            </button>
+                          )}
+                          
+                          {(m.status?.toLowerCase() === 'ao_vivo' || m.status?.toLowerCase() === 'ao vivo') && (
+                            <>
+                              <button 
+                                onClick={() => handleQuickMatchUpdate(m.id, { golosA: (m.golosA || 0) + 1 })}
+                                className="px-3 py-1.5 bg-accent/20 text-accent rounded-lg text-[9px] font-black uppercase"
+                              >
+                                + Golo A
+                              </button>
+                              <button 
+                                onClick={() => handleQuickMatchUpdate(m.id, { golosB: (m.golosB || 0) + 1 })}
+                                className="px-3 py-1.5 bg-accent/20 text-accent rounded-lg text-[9px] font-black uppercase"
+                              >
+                                + Golo B
+                              </button>
+                              <button 
+                                onClick={() => handleQuickMatchUpdate(m.id, { status: 'finalizado', tempo: 'FIM' })}
+                                className="px-3 py-1.5 bg-white/10 text-white/60 rounded-lg text-[9px] font-black uppercase"
+                              >
+                                Finalizar
+                              </button>
+                            </>
+                          )}
+
+                          {m.status?.toLowerCase() === 'finalizado' && (
+                            <button 
+                              onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: 'RECOMEÇO' })}
+                              className="px-3 py-1.5 bg-white/5 text-white/30 rounded-lg text-[9px] font-black uppercase"
+                            >
+                              Reabrir
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -3325,6 +3781,8 @@ export default function App() {
 const [isGuest, setIsGuest] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [activeScreen, setActiveScreen] = useState<Screen>('inicio');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const previousMatchesRef = useRef<Record<string, Match>>({});
   const [posts, setPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<string[]>([]);
   const [games, setGames] = useState<Match[]>(INITIAL_GAMES as any);
@@ -3533,7 +3991,75 @@ const [isGuest, setIsGuest] = useState(false);
         ...doc.data()
       })) as Match[];
       
-      // Check for new live games to notify
+      // Toast System for Real-time events
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'modified') {
+          const matchId = change.doc.id;
+          const newData = change.doc.data() as Match;
+          const oldData = previousMatchesRef.current[matchId];
+
+          if (oldData) {
+            // 1. Início de Jogo
+            if (oldData.status?.toLowerCase() === 'agendado' && newData.status?.toLowerCase() === 'ao_vivo') {
+              addToast({
+                type: 'inicio',
+                title: 'JOGO INICIADO! ⚽',
+                message: `Começou o duelo entre ${newData.equipaA} e ${newData.equipaB}!`,
+                equipaA: newData.equipaA,
+                equipaB: newData.equipaB
+              });
+            }
+
+            // 2. GOLO A
+            if (newData.golosA > (oldData.golosA || 0)) {
+              addToast({
+                type: 'golo',
+                title: 'GOLO! ⚽🔥',
+                message: `${newData.equipaA} acaba de marcar!`,
+                equipaA: newData.equipaA,
+                equipaB: newData.equipaB,
+                golosA: newData.golosA,
+                golosB: newData.golosB
+              });
+            }
+
+            // 3. GOLO B
+            if (newData.golosB > (oldData.golosB || 0)) {
+              addToast({
+                type: 'golo',
+                title: 'GOLO! ⚽🔥',
+                message: `${newData.equipaB} acaba de marcar!`,
+                equipaA: newData.equipaA,
+                equipaB: newData.equipaB,
+                golosA: newData.golosA,
+                golosB: newData.golosB
+              });
+            }
+
+            // 4. FIM de Jogo
+            if (oldData.status?.toLowerCase() === 'ao_vivo' && newData.status?.toLowerCase() === 'finalizado') {
+              addToast({
+                type: 'fim',
+                title: 'JOGO FINALIZADO! 🏁',
+                message: `Resultado final: ${newData.equipaA} ${newData.golosA} - ${newData.golosB} ${newData.equipaB}`,
+                equipaA: newData.equipaA,
+                equipaB: newData.equipaB,
+                golosA: newData.golosA,
+                golosB: newData.golosB
+              });
+            }
+          }
+        }
+      });
+
+      // Update Ref for next comparison
+      const newMatchesRecord: Record<string, Match> = {};
+      matchesData.forEach(m => {
+        newMatchesRecord[m.id] = m;
+      });
+      previousMatchesRef.current = newMatchesRecord;
+
+      // Check for new live games to notify (Traditional Notification)
       if (games.length > 0 && matchesData.length > games.length) {
         const newGame = matchesData.find(m => !games.some(g => g.id === m.id) && m.status === 'AO VIVO');
         if (newGame) {
@@ -3625,6 +4151,15 @@ const [isGuest, setIsGuest] = useState(false);
     setIsGuest(false);
     setShowAdminLogin(false);
     setActiveScreen('inicio');
+  };
+
+  const addToast = (toast: Omit<Toast, 'id'>) => {
+    const id = Date.now().toString();
+    const newToast = { ...toast, id };
+    setToasts(prev => [...prev, newToast]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4500);
   };
 
   const handleScreenChange = (newScreen: Screen) => {
@@ -3773,6 +4308,49 @@ const [isGuest, setIsGuest] = useState(false);
       </main>
 
       <Navbar activeScreen={activeScreen} setActiveScreen={handleScreenChange} />
+
+      {/* Live Toasts Container */}
+      <div className="fixed bottom-24 left-0 right-0 z-[100] px-4 pointer-events-none space-y-2">
+        <AnimatePresence>
+          {toasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+              className="pointer-events-auto mx-auto max-w-sm"
+            >
+              <div className="bg-[#0A0F1C] border border-accent/30 rounded-2xl p-4 shadow-2xl flex items-center gap-4 relative overflow-hidden group">
+                {/* Accent glow */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-accent/10 transition-colors" />
+                
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-accent bg-accent/10 shrink-0 ${toast.type === 'golo' ? 'animate-bounce' : ''}`}>
+                  {toast.type === 'golo' || toast.type === 'inicio' ? <PlayCircle size={24} /> : <Zap size={24} />}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">{toast.title}</h4>
+                  <p className="text-xs font-bold text-white/90 leading-tight mt-0.5">{toast.message}</p>
+                  {toast.type === 'golo' && (
+                    <div className="flex items-center gap-2 mt-2">
+                       <span className="text-[10px] font-black italic bg-white/5 px-2 py-0.5 rounded border border-white/10 uppercase">
+                         {toast.equipaA} <span className="text-accent">{toast.golosA}</span> - <span className="text-accent">{toast.golosB}</span> {toast.equipaB}
+                       </span>
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                  className="p-1 text-white/20 hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

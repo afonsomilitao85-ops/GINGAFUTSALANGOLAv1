@@ -49,7 +49,8 @@
         "golosA": { "type": "number" },
         "golosB": { "type": "number" },
         "tempo": { "type": "string" },
-        "status": { "type": "string", "enum": ["AGENDADO", "AO VIVO", "FINALIZADO"] },
+        "status": { "type": "string", "enum": ["agendado", "ao_vivo", "finalizado", "AGENDADO", "AO VIVO", "FINALIZADO"] },
+        "jornada": { "type": "number", "description": "Número da jornada/ronda" },
         "ligaId": { "type": "string" },
         "data": { "type": "number" }
       },
@@ -78,7 +79,14 @@
         "nome": { "type": "string" },
         "logo": { "type": "string" },
         "ligaId": { "type": "string" },
-        "createdBy": { "type": "string" }
+        "createdBy": { "type": "string" },
+        "cidade": { "type": "string" },
+        "descricao": { "type": "string" },
+        "vitorias": { "type": "number" },
+        "empates": { "type": "number" },
+        "derrotas": { "type": "number" },
+        "golosMarcados": { "type": "number" },
+        "golosSofridos": { "type": "number" }
       },
       "required": ["nome", "ligaId"]
     },
@@ -91,7 +99,10 @@
         "nome": { "type": "string" },
         "posicao": { "type": "string" },
         "numero": { "type": "number" },
-        "equipaId": { "type": "string" }
+        "equipaId": { "type": "string" },
+        "golos": { "type": "number" },
+        "assistencias": { "type": "number" },
+        "foto": { "type": "string" }
       },
       "required": ["nome", "posicao", "equipaId"]
     },
