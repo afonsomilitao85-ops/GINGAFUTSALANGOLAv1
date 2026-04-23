@@ -654,129 +654,36 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
         </div>
 
         <div className="glass rounded-[2.5rem] p-8 shadow-2xl border border-white/10">
-          <div className="flex gap-4 mb-8">
-            <button 
-              onClick={() => setIsPhoneLogin(false)}
-              className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${!isPhoneLogin ? 'border-accent text-white' : 'border-transparent text-white/40'}`}
-            >
-              Email
-            </button>
-            <button 
-              onClick={() => setIsPhoneLogin(true)}
-              className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${isPhoneLogin ? 'border-accent text-white' : 'border-transparent text-white/40'}`}
-            >
-              Telefone
-            </button>
-          </div>
-
-          {isPhoneLogin ? (
-            <form onSubmit={handlePhoneLogin} className="space-y-5">
-              {!isCodeSent ? (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Telemóvel</label>
-                  <p className="text-[10px] text-white/30 ml-1 mb-1 italic">* Inclui o código do país (ex: +244)</p>
-                  <div className="relative">
-                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
-                    <input 
-                      type="tel" 
-                      required
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+244 900 000 000"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Código de Verificação</label>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
-                    <input 
-                      type="text" 
-                      required
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="123456"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
-                    />
-                  </div>
-                </div>
-              )}
-              <div id="recaptcha-container"></div>
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-3"
-              >
-                <div className="p-1 bg-red-500 rounded-full mt-0.5 shrink-0">
-                  <X size={10} className="text-white" />
-                </div>
-                <p className="text-red-500 text-xs font-medium leading-relaxed text-left">
-                  {error}
-                  {(error.includes('costuma falhar') || error.includes('popup-closed-by-user') || error.includes('Interno')) && (
-                    <button 
-                      type="button"
-                      onClick={() => window.open(window.location.href, '_blank')}
-                      className="block mt-2 bg-red-500 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-red-600 transition-colors uppercase text-[9px]"
-                    >
-                      Abrir App noutra janela
-                    </button>
-                  )}
-                  {error.includes('Erro de rede') && (
-                    <button 
-                      type="button"
-                      onClick={() => window.location.reload()}
-                      className="ml-2 underline font-bold hover:text-red-600"
-                    >
-                      Recarregar App
-                    </button>
-                  )}
-                </p>
-              </motion.div>
-            )}
-
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-accent text-white font-bold py-4 rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {isLoading ? 'A PROCESSAR...' : (isCodeSent ? 'VERIFICAR CÓDIGO' : 'ENVIAR CÓDIGO')}
-            </button>
-            </form>
-          ) : (
-            <form onSubmit={handleAuth} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Email</label>
-                <div className="relative">
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="exemplo@ginga.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
-                  />
-                </div>
+          <form onSubmit={handleAuth} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Email</label>
+              <div className="relative">
+                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="exemplo@ginga.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Palavra-passe</label>
-                <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
-                  />
-                </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-1">Palavra-passe</label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
+                />
               </div>
+            </div>
 
             {error && (
               <motion.div 
@@ -817,18 +724,9 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
               className="w-full bg-accent text-white font-bold py-4 rounded-2xl shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {isLoading ? 'A PROCESSAR...' : (isRegistering ? 'CRIAR CONTA' : 'ENTRAR')}
+              {isLoading ? 'A PROCESSAR...' : 'ENTRAR'}
             </button>
-            
-            <button 
-              type="button"
-              onClick={() => setIsRegistering(!isRegistering)}
-              className="w-full text-white/40 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors py-2"
-            >
-              {isRegistering ? 'Já tens conta? Fazer Login' : 'Não tens conta? Registar Admin'}
-            </button>
-            </form>
-          )}
+          </form>
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
