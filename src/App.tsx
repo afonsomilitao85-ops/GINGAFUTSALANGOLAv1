@@ -33,7 +33,11 @@ import {
   AlertTriangle,
   Edit,
   Camera,
-  Check
+  Check,
+  Facebook,
+  Instagram,
+  Music2,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -75,7 +79,7 @@ import {
 } from './firebase';
 
 // --- Types ---
-type Screen = 'inicio' | 'pelada' | 'live' | 'competicoes' | 'mercado' | 'perfil' | 'scout' | 'reservas' | 'monetizacao' | 'ranking' | 'convite' | 'notificacoes' | 'admin';
+type Screen = 'inicio' | 'pelada' | 'live' | 'competicoes' | 'mercado' | 'perfil' | 'scout' | 'reservas' | 'monetizacao' | 'ranking' | 'convite' | 'notificacoes' | 'admin' | 'sobre';
 
 interface Notification {
   id: string;
@@ -334,7 +338,7 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
           alt="GINGAFUTSAL Logo" 
           className="w-full h-full object-contain p-0.5 rounded-lg" 
           onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/100/100';
+            (e.target as HTMLImageElement).src = 'https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/679992172_122093803274358122_3249315041292680989_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=7rp-NwTL0k8Q7kNvwEPNlxP&_nc_oc=AdqWWxfqEPs3JFfD94Z1DKRSw-FhhXJADb3zcfXj4pMUyPkKaOZhM3-xOnj9ZrCQYYo&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=LKmB6mtfA7iiP9Ivm9apEg&oh=00_Af0lHEhGmWhHnwrfACyaq8ENiHtuqshEXuovRwHIqklb9g&oe=69F02CEB';
           }}
         />
       </div>
@@ -376,7 +380,7 @@ const WelcomeScreen = ({ onEnterApp, onAdminLogin }: { onEnterApp: () => void, o
             alt="GINGAFUTSAL Logo" 
             className="w-full h-full object-contain p-2 rounded-[2rem]" 
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
+              (e.target as HTMLImageElement).src = 'https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/679992172_122093803274358122_3249315041292680989_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=7rp-NwTL0k8Q7kNvwEPNlxP&_nc_oc=AdqWWxfqEPs3JFfD94Z1DKRSw-FhhXJADb3zcfXj4pMUyPkKaOZhM3-xOnj9ZrCQYYo&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=LKmB6mtfA7iiP9Ivm9apEg&oh=00_Af0lHEhGmWhHnwrfACyaq8ENiHtuqshEXuovRwHIqklb9g&oe=69F02CEB';
             }}
           />
         </motion.div>
@@ -639,7 +643,7 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
               alt="GINGAFUTSAL Logo" 
               className="w-full h-full object-contain p-1 rounded-[1rem]" 
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ginga/200/200';
+                (e.target as HTMLImageElement).src = 'https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/679992172_122093803274358122_3249315041292680989_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=7rp-NwTL0k8Q7kNvwEPNlxP&_nc_oc=AdqWWxfqEPs3JFfD94Z1DKRSw-FhhXJADb3zcfXj4pMUyPkKaOZhM3-xOnj9ZrCQYYo&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=LKmB6mtfA7iiP9Ivm9apEg&oh=00_Af0lHEhGmWhHnwrfACyaq8ENiHtuqshEXuovRwHIqklb9g&oe=69F02CEB';
               }}
             />
           </div>
@@ -1995,7 +1999,14 @@ const MercadoScreen = ({ products, onAddProduct, user }: { products: Product[], 
   );
 };
 
-const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: { user: UserProfile, currentUser: UserProfile | null, onLogout: () => void, onUpgrade: () => void, onAdminClick: () => void }) => {
+const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick, onAboutClick }: { 
+  user: UserProfile, 
+  currentUser: UserProfile | null, 
+  onLogout: () => void, 
+  onUpgrade: () => void, 
+  onAdminClick: () => void,
+  onAboutClick: () => void 
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [nome, setNome] = useState(user.nome);
   const [bairro, setBairro] = useState(user.bairro || '');
@@ -2257,18 +2268,23 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick }: 
             { icon: Trophy, label: 'Minhas Conquistas' },
             { icon: Star, label: 'Destaque no Topo', badge: '10x' },
             { icon: BarChart3, label: 'Estatísticas Detalhadas' },
-            { icon: Video, label: 'Vídeos do Atleta' }
+            { icon: Video, label: 'Vídeos do Atleta' },
+            { icon: Heart, label: 'Sobre o GINGAFUTSAL', onClick: onAboutClick, isSpecial: true }
           ].map((item, i) => (
-            <button key={i} className="w-full glass rounded-2xl p-4 flex items-center justify-between group hover:bg-white/10 transition-colors">
+            <button 
+              key={i} 
+              onClick={item.onClick}
+              className={`w-full glass rounded-2xl p-4 flex items-center justify-between group hover:bg-white/10 transition-colors ${item.isSpecial ? 'border-accent/30' : ''}`}
+            >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.isSpecial ? 'bg-accent/20 text-accent' : 'bg-accent/10 text-accent'}`}>
                   <item.icon size={20} />
                 </div>
-                <span className="font-bold text-sm">{item.label}</span>
+                <span className={`font-bold text-sm ${item.isSpecial ? 'text-accent' : ''}`}>{item.label}</span>
               </div>
               <div className="flex items-center gap-3">
                 {item.badge && <span className="bg-accent/20 text-accent text-[8px] font-black px-2 py-1 rounded-lg">{item.badge}</span>}
-                <ChevronRight size={18} className="text-white/20 group-hover:text-accent transition-colors" />
+                <ChevronRight size={18} className={`transition-colors ${item.isSpecial ? 'text-accent' : 'text-white/20 group-hover:text-accent'}`} />
               </div>
             </button>
           ))}
@@ -2480,6 +2496,149 @@ const MonetizationScreen = ({ onPay, onBack }: { onPay: () => Promise<void>, onB
             </div>
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const SobreScreen = ({ onBack }: { onBack: () => void }) => {
+  const contacts = [
+    { icon: Phone, label: 'WhatsApp', value: '923 743 254', color: '#25D366' },
+    { icon: Music2, label: 'TikTok', value: '@afonsomilitao', color: '#000000' },
+    { icon: Instagram, label: 'Instagram', value: 'afonso_militao', color: '#E1306C' },
+    { icon: Facebook, label: 'Facebook', value: 'GINGA Futsal Angola', color: '#1877F2' }
+  ];
+
+  return (
+    <div className="relative min-h-screen pb-24 overflow-y-auto">
+      {/* Background with Arena image */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: 'url("Arena.png")' }}
+      >
+        <div className="absolute inset-0 bg-[#0A0F1C]/85 backdrop-blur-[2px]" />
+      </div>
+
+      <div className="relative z-10 px-6 py-12 max-w-lg mx-auto space-y-8">
+        {/* Back Button */}
+        <button 
+          onClick={onBack}
+          className="p-3 glass rounded-2xl text-white/40 hover:text-accent transition-all active:scale-95"
+        >
+          <ChevronRight size={24} className="rotate-180" />
+        </button>
+
+        {/* Info Card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass border border-white/10 rounded-2xl p-8 space-y-10 shadow-2xl overflow-hidden relative"
+        >
+          {/* Header */}
+          <div className="text-center space-y-4">
+            <div className="w-24 h-24 bg-white/5 rounded-3xl p-2 mx-auto relative group">
+              <img 
+                src="logo.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain drop-shadow-2xl" 
+                referrerPolicy="no-referrer" 
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/679992172_122093803274358122_3249315041292680989_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=7rp-NwTL0k8Q7kNvwEPNlxP&_nc_oc=AdqWWxfqEPs3JFfD94Z1DKRSw-FhhXJADb3zcfXj4pMUyPkKaOZhM3-xOnj9ZrCQYYo&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=LKmB6mtfA7iiP9Ivm9apEg&oh=00_Af0lHEhGmWhHnwrfACyaq8ENiHtuqshEXuovRwHIqklb9g&oe=69F02CEB';
+                }}
+              />
+              <div className="absolute inset-0 bg-accent/10 rounded-3xl blur-xl group-hover:bg-accent/20 transition-all opacity-50" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-4xl font-[1000] italic uppercase tracking-tighter text-white leading-none">GINGA<span className="text-accent">FUTSAL</span></h1>
+              <p className="text-[10px] font-bold text-accent uppercase tracking-[0.3em] ml-1">O futuro do futsal angolano</p>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-3">
+            <div className="w-8 h-1 bg-accent rounded-full" />
+            <p className="text-sm text-white/70 leading-relaxed font-medium">
+              O GINGAFUTSAL é a plataforma digital que conecta o futsal angolano — ligas, equipas, jogadores e estatísticas — tudo em tempo real. Vive o jogo, acompanha resultados e destaca o teu talento.
+            </p>
+          </div>
+
+          {/* Developer */}
+          <div className="pt-6 border-t border-white/5 space-y-6">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden glass border-2 border-accent/20 shadow-xl">
+                <img 
+                  src="https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/680220769_948144484735415_6920567675912631908_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=13d280&_nc_ohc=F-5Cj3adDTgQ7kNvwH2GcL2&_nc_oc=Adrgg7GBC-S98qiBdT7r9ZKx09GPWT19yfDWPE3HGKEOyLrFsb55V_ZS-450iafSZTU&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=Y60maeF9GwHK4LZeXCVyjg&oh=00_Af3aKN6HnukANeocrjx1SLB6CT9Ngx3IgqKWdV-wPka-Iw&oe=69EFF7BA" 
+                  alt="Afonso Militão" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div>
+                <h3 className="font-black text-lg uppercase tracking-tight">Afonso Militão</h3>
+                <p className="text-[10px] font-black text-accent uppercase tracking-widest leading-none mt-1">Programador & Motion Designer</p>
+              </div>
+            </div>
+
+            {/* Contacts List */}
+            <div className="grid grid-cols-1 gap-3">
+              {contacts.map((contact, i) => (
+                <a 
+                  key={i} 
+                  href="#" 
+                  className="flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all group active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 rounded-xl bg-white/5 text-white/40 group-hover:text-accent transition-colors">
+                      <contact.icon size={18} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">{contact.label}</p>
+                      <p className="text-xs font-bold">{contact.value}</p>
+                    </div>
+                  </div>
+                  <ExternalLink size={14} className="text-white/10 group-hover:text-accent" />
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Developer Brand */}
+          <div className="pt-6 border-t border-white/5 space-y-4">
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] text-center">Marca do Desenvolvedor</p>
+            <div className="p-6 glass rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center transform hover:scale-105 transition-all">
+                <img 
+                  src="https://scontent.flad8-1.fna.fbcdn.net/v/t39.30808-6/679213198_948157634734100_9198553310191929015_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=4ekd-JyeqAIQ7kNvwHyHFDu&_nc_oc=AdoAUGSozmFSPa_osO4ZV8mNdQ9EO6zsO_2RWYVpSis1HtVW_1MSxLk8iYRFOeDhJvg&_nc_zt=23&_nc_ht=scontent.flad8-1.fna&_nc_gid=StMmD-XuSCUdxPIWASaHoA&oh=00_Af3c3BYc3vt6r1kuPbPjMX2IqAnVjCVv_WYvRB5Vql3-4A&oe=69F02DB1" 
+                  alt="Brand" 
+                  className="max-h-16 w-auto object-contain"
+                  referrerPolicy="no-referrer"
+                />
+            </div>
+          </div>
+
+          {/* Version & Actions */}
+          <div className="pt-6 border-t border-white/5 space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Versão da App</span>
+              <span className="bg-accent/10 text-accent text-[10px] font-black px-3 py-1 rounded-full">v1.0</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button className="bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase py-4 rounded-2xl transition-all flex items-center justify-center gap-2 tracking-widest border border-white/5">
+                <Share2 size={16} />
+                Partilhar
+              </button>
+              <button className="bg-accent text-white font-black text-[10px] uppercase py-4 rounded-2xl shadow-lg shadow-accent/20 transition-all flex items-center justify-center gap-2 tracking-widest hover:scale-105 active:scale-95">
+                <Star size={16} fill="white" />
+                Avaliar
+              </button>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="text-[9px] font-medium text-white/20 text-center uppercase tracking-widest pt-4">
+            © 2026 Afonso Militão. Todos os direitos reservados.
+          </p>
+        </motion.div>
       </div>
     </div>
   );
@@ -4236,13 +4395,14 @@ const [isGuest, setIsGuest] = useState(false);
       case 'live': return <LiveScreen games={games} />;
       case 'competicoes': return <CompeticoesScreen leagues={leagues} teams={teams} players={leaguePlayers} matches={games} />;
       case 'mercado': return <MercadoScreen products={products} onAddProduct={handleAddProduct} user={user} />;
-      case 'perfil': return <PerfilScreen user={user} currentUser={currentUser} onLogout={handleLogout} onUpgrade={handleUpgrade} onAdminClick={handleAdminClick} />;
+      case 'perfil': return <PerfilScreen user={user} currentUser={currentUser} onLogout={handleLogout} onUpgrade={handleUpgrade} onAdminClick={handleAdminClick} onAboutClick={() => setActiveScreen('sobre')} />;
       case 'scout': return <ScoutScreen players={players} />;
       case 'reservas': return <ReservasScreen />;
       case 'monetizacao': return <MonetizationScreen onPay={handleConfirmUpgrade} onBack={() => setActiveScreen('perfil')} />;
       case 'ranking': return <RankingScreen posts={posts} onBack={() => setActiveScreen('inicio')} />;
       case 'convite': return <ConviteScreen onBack={() => setActiveScreen('inicio')} />;
       case 'notificacoes': return <NotificationsScreen notifications={notifications} onBack={() => setActiveScreen('inicio')} onMarkAsRead={handleMarkAsRead} />;
+      case 'sobre': return <SobreScreen onBack={() => setActiveScreen('perfil')} />;
       case 'admin': {
         const isAdmin = currentUser?.role === 'admin' || localStorage.getItem("isAdmin") === "true";
         if (!isAdmin) {
@@ -4270,27 +4430,29 @@ const [isGuest, setIsGuest] = useState(false);
           </motion.div>
         )}
       </AnimatePresence>
-      <Header 
-        title={
-          activeScreen === 'inicio' ? 'Início' :
-          activeScreen === 'pelada' ? 'Pelada' :
-          activeScreen === 'live' ? 'Ao Vivo' :
-          activeScreen === 'competicoes' ? 'Competições' :
-          activeScreen === 'mercado' ? 'Mercado' :
-          activeScreen === 'perfil' ? 'Perfil' :
-          activeScreen === 'scout' ? 'Scout' :
-          activeScreen === 'reservas' ? 'Reservas' :
-          activeScreen === 'monetizacao' ? 'Ginga PRO' :
-          activeScreen === 'ranking' ? 'Ranking' :
-          activeScreen === 'convite' ? 'Convite' :
-          activeScreen === 'notificacoes' ? 'Notificações' :
-          activeScreen === 'admin' ? 'Área Admin' :
-          activeScreen.toUpperCase()
-        } 
-        onScoutClick={() => handleScreenChange('scout')}
-        onNotificationClick={() => handleScreenChange('notificacoes')}
-        hasUnread={notifications.some(n => !n.isRead)}
-      />
+      {activeScreen !== 'sobre' && (
+        <Header 
+          title={
+            activeScreen === 'inicio' ? 'Início' :
+            activeScreen === 'pelada' ? 'Pelada' :
+            activeScreen === 'live' ? 'Ao Vivo' :
+            activeScreen === 'competicoes' ? 'Competições' :
+            activeScreen === 'mercado' ? 'Mercado' :
+            activeScreen === 'perfil' ? 'Perfil' :
+            activeScreen === 'scout' ? 'Scout' :
+            activeScreen === 'reservas' ? 'Reservas' :
+            activeScreen === 'monetizacao' ? 'Ginga PRO' :
+            activeScreen === 'ranking' ? 'Ranking' :
+            activeScreen === 'convite' ? 'Convite' :
+            activeScreen === 'notificacoes' ? 'Notificações' :
+            activeScreen === 'admin' ? 'Área Admin' :
+            activeScreen.toUpperCase()
+          } 
+          onScoutClick={() => handleScreenChange('scout')}
+          onNotificationClick={() => handleScreenChange('notificacoes')}
+          hasUnread={notifications.some(n => !n.isRead)}
+        />
+      )}
       
       <main className="flex-1 relative overflow-y-auto no-scrollbar pb-20">
         <AnimatePresence mode="wait">
@@ -4307,7 +4469,9 @@ const [isGuest, setIsGuest] = useState(false);
         </AnimatePresence>
       </main>
 
-      <Navbar activeScreen={activeScreen} setActiveScreen={handleScreenChange} />
+      {activeScreen !== 'sobre' && (
+        <Navbar activeScreen={activeScreen} setActiveScreen={handleScreenChange} />
+      )}
 
       {/* Live Toasts Container */}
       <div className="fixed bottom-24 left-0 right-0 z-[100] px-4 pointer-events-none space-y-2">
