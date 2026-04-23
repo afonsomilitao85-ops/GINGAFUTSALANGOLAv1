@@ -130,6 +130,9 @@ interface Match {
   liga?: string;
   data?: any;
   jornada?: number;
+  hora?: string;
+  local?: string;
+  timestamp?: number;
 }
 
 interface League {
@@ -976,8 +979,14 @@ const PeladaScreen = () => {
 };
 
 const LiveScreen = ({ games }: { games: Match[] }) => {
-  const liveGames = games.filter(g => g.status?.toLowerCase() === 'ao_vivo' || g.status?.toLowerCase() === 'ao vivo');
-  const finishedGames = games.filter(g => g.status?.toLowerCase() === 'finalizado').slice(0, 5);
+  const liveGames = games
+    .filter(g => g.status?.toLowerCase() === 'ao_vivo' || g.status?.toLowerCase() === 'ao vivo')
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  const finishedGames = games
+    .filter(g => g.status?.toLowerCase() === 'finalizado')
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6 pb-24">
@@ -1008,9 +1017,12 @@ const LiveScreen = ({ games }: { games: Match[] }) => {
               <div key={game.id} className="glass rounded-[2.5rem] p-8 space-y-8 relative overflow-hidden group border border-white/5 shadow-2xl">
                 {/* Status Indicator */}
                 <div className="flex justify-between items-center relative z-10">
-                  <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full shadow-lg shadow-red-600/20 animate-pulse">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                    <span className="text-white text-[10px] font-black uppercase tracking-widest">AO VIVO</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full shadow-lg shadow-red-600/20 animate-pulse w-fit">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                      <span className="text-white text-[10px] font-black uppercase tracking-widest">AO VIVO</span>
+                    </div>
+                    {game.hora && <span className="text-[10px] font-black text-accent ml-2 italic">🕒 {game.hora}</span>}
                   </div>
                   <div className="text-right">
                     <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{game.liga || 'Ginga Cup'}</p>
@@ -1051,6 +1063,13 @@ const LiveScreen = ({ games }: { games: Match[] }) => {
                     </div>
                   </div>
                 </div>
+
+                {game.local && (
+                  <div className="flex items-center justify-center gap-2 opacity-50 relative z-10 bg-white/5 py-2 rounded-xl">
+                    <MapPin size={10} className="text-accent" />
+                    <span className="text-[9px] font-black uppercase tracking-widest italic">{game.local}</span>
+                  </div>
+                )}
 
                 {/* Watch Button */}
                 <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 relative z-10">
@@ -1174,7 +1193,30 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
   };
 
   const leagueTeams = teams.filter(t => t.ligaId === selectedLeague?.id);
-  const leagueMatches = matches.filter(m => m.ligaId === selectedLeague?.id);
+  const leagueMatches = matches
+    .filter(m => m.ligaId === selectedLeague?.id)
+    .sort((a, b) => {
+      if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
+      if (a.timestamp) return -1;
+      if (b.timestamp) return 1;
+      
+      const valA = typeof a.data === 'number' ? a.data : 0;
+      const valB = typeof b.data === 'number' ? b.data : 0;
+      return valB - valA;
+    });
+
+  const formatDateLabel = (dateStr: string) => {
+    if (!dateStr || dateStr === 'Sem Data' || typeof dateStr !== 'string') return 'Data a definir';
+    try {
+      const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const [year, month, day] = dateStr.split('-');
+      if (!year || !month || !day) return dateStr;
+      return `${parseInt(day)} ${months[parseInt(month) - 1]} ${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const teamPlayers = players.filter(p => p.equipaId === selectedTeam?.id);
   const standings = selectedLeague ? calculateStandings(selectedLeague.id) : [];
 
@@ -1435,60 +1477,93 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
                 )
                 .sort(([a], [b]) => Number(b) - Number(a))
                 .map(([jornada, jornadaMatches]) => (
-                  <div key={jornada} className="space-y-4">
+                  <div key={jornada} className="space-y-6">
                     <div className="flex items-center gap-3 px-2">
-                      <div className="h-[1px] flex-1 bg-white/10" />
-                      <h3 className="text-[10px] font-black uppercase text-accent tracking-[0.3em]">Jornada {jornada}</h3>
-                      <div className="h-[1px] flex-1 bg-white/10" />
+                       <div className="h-[1px] flex-1 bg-white/10" />
+                       <h3 className="text-[10px] font-black uppercase text-accent tracking-[0.3em]">Jornada {jornada}</h3>
+                       <div className="h-[1px] flex-1 bg-white/10" />
                     </div>
-                    
-                    <div className="space-y-4">
-                      {jornadaMatches.map(match => {
-                        const status = match.status?.toLowerCase() || 'finalizado';
-                        const isLive = status === 'ao_vivo' || status === 'ao vivo';
-                        const isScheduled = status === 'agendado';
 
-                        return (
-                          <div key={match.id} className={`glass p-6 rounded-[2.5rem] space-y-4 border relative overflow-hidden group shadow-xl transition-all ${isLive ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'}`}>
-                            {/* Live Badge Background */}
-                            {isLive && (
-                              <div className="absolute top-0 right-0 p-1 opacity-20">
-                                <div className="bg-red-500 w-32 h-32 rounded-full blur-3xl -mr-16 -mt-16" />
-                              </div>
-                            )}
+                    {Object.entries(
+                      jornadaMatches.reduce((acc, m) => {
+                        const d = m.data || 'Sem Data';
+                        if (!acc[d]) acc[d] = [];
+                        acc[d].push(m);
+                        return acc;
+                      }, {} as Record<string, Match[]>)
+                    ).map(([date, dateMatches]) => (
+                      <div key={date} className="space-y-4">
+                        {/* Date Label */}
+                        <div className="flex items-center gap-2 pl-4">
+                          <Calendar size={12} className="text-accent" />
+                          <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">{formatDateLabel(date)}</span>
+                        </div>
 
-                            <div className="flex justify-between items-center relative z-10">
-                              <div className="flex items-center gap-2">
-                                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isLive ? 'bg-red-500 text-white animate-pulse' : isScheduled ? 'bg-yellow-500/20 text-yellow-500' : 'bg-white/10 text-white/40'}`}>
-                                  <span>{isLive ? '🔴 AO VIVO' : isScheduled ? '🟡 AGENDADO' : '⚫ FINAL'}</span>
+                        <div className="space-y-4">
+                          {dateMatches.map(match => {
+                            const status = match.status?.toLowerCase() || 'finalizado';
+                            const isLive = status === 'ao_vivo' || status === 'ao vivo';
+                            const isScheduled = status === 'agendado';
+
+                            return (
+                              <div key={match.id} className={`glass p-6 rounded-[2.5rem] space-y-4 border relative overflow-hidden group shadow-xl transition-all ${isLive ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'}`}>
+                                {/* Live Badge Background */}
+                                {isLive && (
+                                  <div className="absolute top-0 right-0 p-1 opacity-20">
+                                    <div className="bg-red-500 w-32 h-32 rounded-full blur-3xl -mr-16 -mt-16" />
+                                  </div>
+                                )}
+
+                                <div className="flex justify-between items-center relative z-10">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isLive ? 'bg-red-500 text-white animate-pulse' : isScheduled ? 'bg-yellow-500/20 text-yellow-500' : 'bg-white/10 text-white/40'}`}>
+                                      <span>{isLive ? '🔴 AO VIVO' : isScheduled ? '🟡 AGENDADO' : '⚫ FINAL'}</span>
+                                    </div>
+                                    {match.hora && (
+                                      <div className="flex items-center gap-1">
+                                        <Zap size={10} className="text-accent fill-accent" />
+                                        <span className="text-[11px] font-black text-accent">{match.hora}</span>
+                                      </div>
+                                    )}
+                                    {isLive && <span className="text-[9px] font-black text-red-500 animate-pulse">{match.tempo}</span>}
+                                  </div>
+                                  <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">{match.liga}</span>
                                 </div>
-                                {isLive && <span className="text-[9px] font-black text-red-500 animate-pulse">{match.tempo}</span>}
-                              </div>
-                              <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">{match.liga}</span>
-                            </div>
-                            <div className="flex justify-between items-center gap-4 text-center">
-                              <div className="flex-1 space-y-2">
-                                <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
-                                  <img src={teams.find(t => t.id === match.equipaAId)?.logo || `https://picsum.photos/seed/${match.equipaA}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                
+                                <div className="flex justify-between items-center gap-4 text-center">
+                                  <div className="flex-1 space-y-2">
+                                    <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
+                                      <img src={teams.find(t => t.id === match.equipaAId)?.logo || `https://picsum.photos/seed/${match.equipaA}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                    </div>
+                                    <p className="font-black italic text-[10px] uppercase truncate">{match.equipaA}</p>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner">
+                                    <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
+                                    <span className="text-white/10 font-black text-xl">-</span>
+                                    <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
+                                  </div>
+                                  
+                                  <div className="flex-1 space-y-2">
+                                    <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
+                                      <img src={teams.find(t => t.id === match.equipaBId)?.logo || `https://picsum.photos/seed/${match.equipaB}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                    </div>
+                                    <p className="font-black italic text-[10px] uppercase truncate">{match.equipaB}</p>
+                                  </div>
                                 </div>
-                                <p className="font-black italic text-[10px] uppercase truncate">{match.equipaA}</p>
+
+                                {match.local && (
+                                  <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/5 opacity-60">
+                                    <MapPin size={10} className="text-accent" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">{match.local}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner">
-                                <span className={`text-3xl font-black italic leading-none ${status === 'ao_vivo' || status === 'ao vivo' ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
-                                <span className="text-white/10 font-black text-xl">-</span>
-                                <span className={`text-3xl font-black italic leading-none ${status === 'ao_vivo' || status === 'ao vivo' ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
-                              </div>
-                              <div className="flex-1 space-y-2">
-                                <div className="w-12 h-12 glass rounded-2xl mx-auto p-2 border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
-                                  <img src={teams.find(t => t.id === match.equipaBId)?.logo || `https://picsum.photos/seed/${match.equipaB}/100/100`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                                </div>
-                                <p className="font-black italic text-[10px] uppercase truncate">{match.equipaB}</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
@@ -2705,7 +2780,8 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const [newMatch, setNewMatch] = useState({ 
     equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
     golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado' as any,
-    ligaId: '', liga: '', jornada: 1
+    ligaId: '', liga: '', jornada: 1,
+    data: '', hora: '', local: ''
   });
 
   useEffect(() => {
@@ -2889,6 +2965,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     if (!e1 || !e2 || !l) return;
 
     try {
+      let timestamp = Date.now();
+      if (newMatch.data && newMatch.hora) {
+        timestamp = new Date(`${newMatch.data}T${newMatch.hora}:00`).getTime();
+      }
+
       const matchData = {
         equipaA: e1.nome,
         equipaB: e2.nome,
@@ -2901,7 +2982,10 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         jornada: newMatch.jornada || 1,
         ligaId: l.id,
         liga: l.nome,
-        data: editingMatch ? editingMatch.data : Date.now()
+        data: newMatch.data || (editingMatch ? editingMatch.data : ''),
+        hora: newMatch.hora || '',
+        local: newMatch.local || '',
+        timestamp: timestamp
       };
 
       if (editingMatch) {
@@ -2912,7 +2996,8 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       setNewMatch({ 
         equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
         golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado',
-        ligaId: '', liga: '', jornada: 1
+        ligaId: '', liga: '', jornada: 1,
+        data: '', hora: '', local: ''
       });
       setShowAddMatch(false);
       setEditingMatch(null);
@@ -3439,7 +3524,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                   <div className="flex justify-between items-center px-1">
                     <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Jogos</h3>
                     <button 
-                      onClick={() => { setShowAddMatch(!showAddMatch); setEditingMatch(null); setNewMatch({ equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO', ligaId: '', liga: '' }); }} 
+                      onClick={() => { setShowAddMatch(!showAddMatch); setEditingMatch(null); setNewMatch({ equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO', ligaId: '', liga: '', jornada: 1, data: '', hora: '', local: '' }); }} 
                       className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
                     >
                       {showAddMatch ? <X size={12} /> : <Plus size={12} />}
@@ -3526,6 +3611,34 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         />
                       </div>
 
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Data</label>
+                          <input 
+                            type="date" 
+                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
+                            value={newMatch.data} onChange={e => setNewMatch({...newMatch, data: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Hora</label>
+                          <input 
+                            type="time" 
+                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
+                            value={newMatch.hora} onChange={e => setNewMatch({...newMatch, hora: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Local (Pavilhão/Campo)</label>
+                        <input 
+                          type="text" placeholder="Ex: Pavilhão da Cidadela" 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                          value={newMatch.local} onChange={e => setNewMatch({...newMatch, local: e.target.value})}
+                        />
+                      </div>
+
                       <button onClick={handleCreateMatch} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
                         {editingMatch ? 'GUARDAR RESULTADO' : 'CRIAR JOGO'}
                       </button>
@@ -3540,7 +3653,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           <span className="text-[8px] text-white/30 font-bold uppercase">{m.liga}</span>
                           <div className="flex gap-1">
                              <button 
-                              onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1 }); setShowAddMatch(true); }}
+                              onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }}
                               className="p-1.5 bg-white/5 text-white/40 rounded-lg hover:text-accent"
                             >
                               <Edit size={12} />
