@@ -9,6 +9,7 @@ import {
   BarChart3, 
   LogOut,
   ChevronRight,
+  ChevronLeft,
   Search,
   Bell,
   Plus,
@@ -37,7 +38,8 @@ import {
   Facebook,
   Instagram,
   Music2,
-  ExternalLink
+  ExternalLink,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -911,11 +913,17 @@ const InicioScreen = ({ setScreen, user }: { setScreen: (s: Screen) => void, use
   </div>
 );
 
-const PeladaScreen = () => {
+const PeladaScreen = ({ onBack }: { onBack: () => void }) => {
   const [notified, setNotified] = useState(false);
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center space-y-8 bg-transparent relative overflow-hidden">
+    <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8 text-center bg-transparent relative overflow-hidden">
+      <div className="absolute top-6 left-6 z-20">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em]">
+          <ChevronLeft size={16} />
+          Voltar
+        </button>
+      </div>
       {/* Background Decorative Element */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent/10 blur-[100px] rounded-full pointer-events-none" />
       
@@ -978,7 +986,7 @@ const PeladaScreen = () => {
   );
 };
 
-const LiveScreen = ({ games }: { games: Match[] }) => {
+const LiveScreen = ({ games, onBack }: { games: Match[], onBack: () => void }) => {
   const liveGames = games
     .filter(g => g.status?.toLowerCase() === 'ao_vivo' || g.status?.toLowerCase() === 'ao vivo')
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -990,14 +998,20 @@ const LiveScreen = ({ games }: { games: Match[] }) => {
 
   return (
     <div className="space-y-6 pb-24">
-      <div className="px-6 pt-6 flex justify-between items-end">
-        <div className="space-y-1">
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter">Ginga <span className="text-accent underline">Live</span></h2>
-          <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Acompanha as emoções em tempo real</p>
-        </div>
-        <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
-          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-red-500 text-[8px] font-black uppercase">{liveGames.length} Directos</span>
+      <div className="px-6 pt-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+          <ChevronLeft size={16} />
+          Voltar
+        </button>
+        <div className="flex justify-between items-end">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter">Ginga <span className="text-accent underline">Live</span></h2>
+            <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Acompanha as emoções em tempo real</p>
+          </div>
+          <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
+            <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-red-500 text-[8px] font-black uppercase">{liveGames.length} Directos</span>
+          </div>
         </div>
       </div>
 
@@ -1114,11 +1128,12 @@ const LiveScreen = ({ games }: { games: Match[] }) => {
   );
 };
 
-const CompeticoesScreen = ({ leagues, teams, players, matches }: { 
+const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: { 
   leagues: League[], 
   teams: Team[], 
   players: LeaguePlayer[],
-  matches: Match[]
+  matches: Match[],
+  onBack: () => void
 }) => {
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [activeTab, setActiveTab] = useState<'tabela' | 'jogos' | 'equipas'>('tabela');
@@ -1538,10 +1553,18 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
                                     <p className="font-black italic text-[10px] uppercase truncate">{match.equipaA}</p>
                                   </div>
                                   
-                                  <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner">
-                                    <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
-                                    <span className="text-white/10 font-black text-xl">-</span>
-                                    <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
+                                  <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner min-w-[100px] justify-center">
+                                    {isScheduled && (match.golosA === 0 && match.golosB === 0) ? (
+                                      <span className="text-xs font-black italic text-accent tracking-tighter uppercase whitespace-nowrap">
+                                        {match.hora ? `🕒 ${match.hora}` : "VS"}
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
+                                        <span className="text-white/10 font-black text-xl">-</span>
+                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
+                                      </>
+                                    )}
                                   </div>
                                   
                                   <div className="flex-1 space-y-2">
@@ -1602,9 +1625,15 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
 
   return (
     <div className="px-6 py-8 space-y-8 pb-32">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black italic uppercase tracking-tighter">Copas <span className="text-accent underline decoration-4 underline-offset-4">&</span> Torneios</h2>
-        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">O Futsal de Elite em Angola</p>
+      <div className="space-y-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em]">
+          <ChevronLeft size={16} />
+          Voltar
+        </button>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter">Copas <span className="text-accent underline decoration-4 underline-offset-4">&</span> Torneios</h2>
+          <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">O Futsal de Elite em Angola</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -1651,7 +1680,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches }: {
   );
 };
 
-const MercadoScreen = ({ products, onAddProduct, user }: { products: Product[], onAddProduct: (p: Partial<Product>) => void, user: UserProfile }) => {
+const MercadoScreen = ({ products, onAddProduct, user, onBack }: { products: Product[], onAddProduct: (p: Partial<Product>) => void, user: UserProfile, onBack: () => void }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newAd, setNewAd] = useState({ title: '', price: '', whatsapp: '', isFeatured: false });
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -1777,15 +1806,21 @@ const MercadoScreen = ({ products, onAddProduct, user }: { products: Product[], 
 
   return (
     <div className="px-6 py-6 space-y-6 pb-24 relative">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Mercado</h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-accent text-white font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
-        >
-          <Plus size={20} />
-          Vender
+      <div className="space-y-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em]">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Mercado</h2>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-accent text-white font-bold px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+          >
+            <Plus size={20} />
+            Vender
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -1972,13 +2007,14 @@ const MercadoScreen = ({ products, onAddProduct, user }: { products: Product[], 
   );
 };
 
-const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick, onAboutClick }: { 
+const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick, onAboutClick, onBack }: { 
   user: UserProfile, 
   currentUser: UserProfile | null, 
   onLogout: () => void, 
   onUpgrade: () => void, 
   onAdminClick: () => void,
-  onAboutClick: () => void 
+  onAboutClick: () => void,
+  onBack: () => void
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [nome, setNome] = useState(user.nome);
@@ -2084,6 +2120,12 @@ const PerfilScreen = ({ user, currentUser, onLogout, onUpgrade, onAdminClick, on
 
   return (
     <div className="pb-24 relative overflow-hidden">
+      <div className="absolute top-6 left-6 z-30">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-white transition-all text-[10px] font-black uppercase tracking-[0.2em] glass px-3 py-2 rounded-xl border border-white/5">
+          <ChevronLeft size={16} />
+          Voltar
+        </button>
+      </div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none">
         <Trophy size={400} />
       </div>
@@ -2408,8 +2450,9 @@ const MonetizationScreen = ({ onPay, onBack }: { onPay: () => Promise<void>, onB
   return (
     <div className="px-6 py-8 space-y-8 pb-24">
       <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 glass rounded-xl text-white/40">
-          <ChevronRight size={20} className="rotate-180" />
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
         <h2 className="text-2xl font-black italic uppercase tracking-tighter">Upgrade <span className="text-accent">PRO</span></h2>
       </div>
@@ -2496,9 +2539,10 @@ const SobreScreen = ({ onBack }: { onBack: () => void }) => {
         {/* Back Button */}
         <button 
           onClick={onBack}
-          className="p-3 glass rounded-2xl text-white/40 hover:text-accent transition-all active:scale-95"
+          className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] glass px-4 py-3 rounded-2xl border border-white/5 w-fit"
         >
-          <ChevronRight size={24} className="rotate-180" />
+          <ChevronLeft size={18} />
+          Voltar
         </button>
 
         {/* Info Card */}
@@ -2625,8 +2669,9 @@ const RankingScreen = ({ posts, onBack }: { posts: Post[], onBack: () => void })
   return (
     <div className="px-6 py-8 space-y-8 pb-24">
       <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 glass rounded-xl text-white/40">
-          <ChevronRight size={20} className="rotate-180" />
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
         <h2 className="text-2xl font-black italic uppercase tracking-tighter">Ranking <span className="text-accent">Ginga</span></h2>
       </div>
@@ -2688,8 +2733,9 @@ const ConviteScreen = ({ onBack }: { onBack: () => void }) => {
   return (
     <div className="px-6 py-8 space-y-8 pb-24">
       <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 glass rounded-xl text-white/40">
-          <ChevronRight size={20} className="rotate-180" />
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
         <h2 className="text-2xl font-black italic uppercase tracking-tighter">Convidar <span className="text-accent">Amigos</span></h2>
       </div>
@@ -2746,6 +2792,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const [activeTab, setActiveTab] = useState<'posts' | 'users' | 'copas'>('posts');
   const [activeCopasTab, setActiveCopasTab] = useState<'ligas' | 'equipas' | 'jogadores' | 'jogos'>('ligas');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterLeagueId, setFilterLeagueId] = useState('');
+  const [filterJornada, setFilterJornada] = useState<number | ''>('');
 
   // Copas Management State
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -2826,6 +2877,71 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       unsubscribeMatches();
     };
   }, []);
+
+  const filteredPosts = posts.filter(p => 
+    p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.bairro.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredUsers = users.filter(u => 
+    u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredLeagues = leagues
+    .filter(l => l.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const filteredTeams = teams
+    .filter(t => {
+      const matchesSearch = t.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesLeague = !filterLeagueId || t.ligaId === filterLeagueId;
+      return matchesSearch && matchesLeague;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const filteredPlayers = leaguePlayers
+    .filter(p => {
+      const matchesSearch = p.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      const team = teams.find(t => t.id === p.equipaId);
+      const matchesLeague = !filterLeagueId || team?.ligaId === filterLeagueId;
+      return matchesSearch && matchesLeague;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const filteredMatches = matches
+    .filter(m => {
+      const matchesSearch = 
+        m.equipaA.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        m.equipaB.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesLeague = !filterLeagueId || m.ligaId === filterLeagueId;
+      const matchesJornada = !filterJornada || m.jornada === filterJornada;
+      return matchesSearch && matchesLeague && matchesJornada;
+    })
+    .sort((a, b) => (a.jornada || 0) - (b.jornada || 0) || (a.timestamp || 0) - (b.timestamp || 0));
+
+  const AdminModal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
+    if (!isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-[#0A0F1C] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-black italic uppercase text-accent tracking-tighter">{title}</h3>
+            <button onClick={onClose} className="p-2 bg-white/5 rounded-xl hover:text-accent transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+          {children}
+        </motion.div>
+      </div>
+    );
+  };
 
   const handleCreateLeague = async () => {
     if (!newLeague.nome || !newLeague.regiao || !currentUser) return;
@@ -3064,20 +3180,21 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
 
   return (
     <div className="px-6 py-8 space-y-8 pb-24">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 glass rounded-xl text-white/40">
-            <ChevronRight size={20} className="rotate-180" />
-          </button>
-          <h2 className="text-2xl font-black italic uppercase tracking-tighter">Painel <span className="text-accent">Admin</span></h2>
-        </div>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="p-3 glass rounded-xl text-accent hover:bg-accent/10 transition-colors"
-          title="Recarregar App"
-        >
-          <Zap size={18} />
+      <div className="flex flex-col gap-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter">Painel <span className="text-accent">Admin</span></h2>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="p-3 glass rounded-xl text-accent hover:bg-accent/10 transition-colors"
+            title="Recarregar App"
+          >
+            <Zap size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 p-1 glass rounded-2xl overflow-x-auto no-scrollbar">
@@ -3101,6 +3218,43 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         </button>
       </div>
 
+      {/* Global Filters */}
+      <div className="space-y-4">
+        <div className="relative">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+          <input 
+            type="text" 
+            placeholder="Procurar (nome, equipa, email...)"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-accent/50 outline-none transition-all"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {activeTab === 'copas' && (
+          <div className="grid grid-cols-2 gap-2">
+            <select 
+              value={filterLeagueId}
+              onChange={e => setFilterLeagueId(e.target.value)}
+              className="bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none"
+            >
+              <option value="">Todas as Ligas</option>
+              {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+            <select 
+              value={filterJornada}
+              onChange={e => setFilterJornada(e.target.value ? parseInt(e.target.value) : '')}
+              className="bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none"
+            >
+              <option value="">Todas Jornadas</option>
+              {[...Array(30)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>Jornada {i + 1}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-20">
           <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -3108,7 +3262,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       ) : (
         <div className="space-y-4">
           {activeTab === 'posts' && (
-            posts.map(post => (
+            filteredPosts.map(post => (
               <div key={post.id} className="glass rounded-3xl p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/5">
@@ -3139,7 +3293,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
           )}
 
           {activeTab === 'users' && (
-            users.map(u => (
+            filteredUsers.map(u => (
               <div key={u.uid} className="glass rounded-3xl p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -3207,66 +3361,86 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
               {activeCopasTab === 'ligas' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-1">
-                    <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Ligas</h3>
+                    <div className="flex items-center gap-2">
+                       <Trophy size={14} className="text-accent" />
+                       <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Ligas</h3>
+                    </div>
                     <button 
-                      onClick={() => { setShowAddLeague(!showAddLeague); setEditingLeague(null); setNewLeague({ nome: '', regiao: '', logo: '', temporada: '' }); }} 
-                      className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
+                      onClick={() => { setShowAddLeague(true); setEditingLeague(null); setNewLeague({ nome: '', regiao: '', logo: '', temporada: '' }); }} 
+                      className="bg-accent text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-accent/20 flex items-center gap-2"
                     >
-                      {showAddLeague ? <X size={12} /> : <Plus size={12} />}
-                      {showAddLeague ? 'Fechar' : 'Nova Liga'}
+                      <Plus size={14} />
+                      Nova Liga
                     </button>
                   </div>
 
-                  {showAddLeague && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass p-5 rounded-3xl border border-accent/20 space-y-3">
-                      <p className="text-[10px] font-black text-accent uppercase tracking-widest">{editingLeague ? 'Editar Liga' : 'Nova Liga'}</p>
-                      <input 
-                        type="text" placeholder="Nome da Liga" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                        value={newLeague.nome} onChange={e => setNewLeague({...newLeague, nome: e.target.value})}
-                      />
-                      <div className="grid grid-cols-2 gap-2">
+                  <AdminModal 
+                    isOpen={showAddLeague} 
+                    onClose={() => { setShowAddLeague(false); setEditingLeague(null); }}
+                    title={editingLeague ? 'Editar Liga' : 'Nova Liga'}
+                  >
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Nome da Liga</label>
                         <input 
-                          type="text" placeholder="Região" 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                          value={newLeague.regiao} onChange={e => setNewLeague({...newLeague, regiao: e.target.value})}
-                        />
-                        <input 
-                          type="text" placeholder="Temporada" 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                          value={newLeague.temporada} onChange={e => setNewLeague({...newLeague, temporada: e.target.value})}
+                          type="text" placeholder="Ex: Girabola Futsal" 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                          value={newLeague.nome} onChange={e => setNewLeague({...newLeague, nome: e.target.value})}
                         />
                       </div>
-                      <input 
-                        type="text" placeholder="URL do Logo" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                        value={newLeague.logo} onChange={e => setNewLeague({...newLeague, logo: e.target.value})}
-                      />
-                      <button onClick={handleCreateLeague} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Região</label>
+                          <input 
+                             type="text" placeholder="Luanda" 
+                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                             value={newLeague.regiao} onChange={e => setNewLeague({...newLeague, regiao: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Temporada</label>
+                          <input 
+                            type="text" placeholder="2024" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                            value={newLeague.temporada} onChange={e => setNewLeague({...newLeague, temporada: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">URL do Logo</label>
+                        <input 
+                          type="text" placeholder="https://..." 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                          value={newLeague.logo} onChange={e => setNewLeague({...newLeague, logo: e.target.value})}
+                        />
+                      </div>
+                      <button onClick={handleCreateLeague} className="w-full bg-accent text-white font-bold py-5 rounded-2xl text-xs uppercase shadow-lg shadow-accent/20 mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]">
                         {editingLeague ? 'GUARDAR ALTERAÇÕES' : 'CRIAR LIGA'}
                       </button>
-                    </motion.div>
-                  )}
+                    </div>
+                  </AdminModal>
 
                   <div className="space-y-3">
-                    {leagues.map(l => (
-                      <div key={l.id} className="glass p-4 rounded-2xl flex items-center justify-between gap-4">
+                    {filteredLeagues.map(l => (
+                      <div key={l.id} className="glass p-5 rounded-[2rem] border border-white/5 flex items-center justify-between gap-4 group hover:border-accent/20 transition-all">
                         <div className="flex items-center gap-4">
-                          <img src={l.logo} className="w-10 h-10 object-contain" referrerPolicy="no-referrer" />
+                          <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center p-2">
+                            <img src={l.logo} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          </div>
                           <div>
-                            <p className="font-bold text-sm">{l.nome}</p>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{l.regiao} • {l.temporada}</p>
+                            <p className="font-black italic text-sm text-white group-hover:text-accent transition-colors">{l.nome}</p>
+                            <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{l.regiao} • {l.temporada}</p>
                           </div>
                         </div>
                         <div className="flex gap-2">
                           <button 
                             onClick={() => { setEditingLeague(l); setNewLeague({ nome: l.nome, regiao: l.regiao, logo: l.logo || '', temporada: l.temporada || '' }); setShowAddLeague(true); }}
-                            className="p-2 px-3 bg-white/5 text-white/40 rounded-lg hover:text-accent transition-colors"
+                            className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
                           >
-                            <Edit size={14} />
+                            <Edit size={16} />
                           </button>
-                          <button onClick={() => handleDeleteLeague(l.id)} className="p-2 px-3 bg-red-500/10 text-red-500 rounded-lg">
-                            <Trash2 size={14} />
+                          <button onClick={() => handleDeleteLeague(l.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all">
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </div>
@@ -3279,128 +3453,118 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
               {activeCopasTab === 'equipas' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-1">
-                    <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Equipas</h3>
+                    <div className="flex items-center gap-2">
+                       <ShieldCheck size={14} className="text-accent" />
+                       <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Equipas</h3>
+                    </div>
                     <button 
                       onClick={() => { 
-                        setShowAddTeam(!showAddTeam); 
+                        setShowAddTeam(true); 
                         setEditingTeam(null); 
-                        setNewTeam({ 
-                          nome: '', 
-                          ligaId: '', 
-                          logo: '', 
-                          cidade: '', 
-                          descricao: '',
-                          ajustePontos: 0,
-                          ajusteGM: 0,
-                          ajusteGS: 0
-                        }); 
+                        setNewTeam({ nome: '', ligaId: '', logo: '', cidade: '', descricao: '', ajustePontos: 0, ajusteGM: 0, ajusteGS: 0 }); 
                       }} 
-                      className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
+                      className="bg-accent text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-accent/20 flex items-center gap-2"
                     >
-                      {showAddTeam ? <X size={12} /> : <Plus size={12} />}
-                      {showAddTeam ? 'Fechar' : 'Nova Equipa'}
+                      <Plus size={14} />
+                      Nova Equipa
                     </button>
                   </div>
 
-                  {showAddTeam && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass p-5 rounded-3xl border border-accent/20 space-y-3">
-                      <p className="text-[10px] font-black text-accent uppercase tracking-widest">{editingTeam ? 'Editar Equipa' : 'Nova Equipa'}</p>
-                      <input 
-                        type="text" placeholder="Nome da Equipa" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                        value={newTeam.nome} onChange={e => setNewTeam({...newTeam, nome: e.target.value})}
-                      />
-                      <select 
-                        className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                        value={newTeam.ligaId} onChange={e => setNewTeam({...newTeam, ligaId: e.target.value})}
-                      >
-                        <option value="">Associar a Liga</option>
-                        {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-                      </select>
-                      <input 
-                        type="text" placeholder="URL do Logo" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                        value={newTeam.logo} onChange={e => setNewTeam({...newTeam, logo: e.target.value})}
-                      />
-                      <input 
-                        type="text" placeholder="Cidade" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                        value={newTeam.cidade} onChange={e => setNewTeam({...newTeam, cidade: e.target.value})}
-                      />
-                      <textarea 
-                        placeholder="Descrição da Equipa" 
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none min-h-[80px]"
-                        value={newTeam.descricao} onChange={e => setNewTeam({...newTeam, descricao: e.target.value})}
-                      />
-
-                      <div className="pt-2 space-y-3">
-                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Ajustes de Classificação (Apenas Admin)</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Pts Extra</label>
-                            <input 
-                              type="number" 
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                              value={newTeam.ajustePontos} onChange={e => setNewTeam({...newTeam, ajustePontos: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GM Extra</label>
-                            <input 
-                              type="number" 
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                              value={newTeam.ajusteGM} onChange={e => setNewTeam({...newTeam, ajusteGM: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GS Extra</label>
-                            <input 
-                              type="number" 
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                              value={newTeam.ajusteGS} onChange={e => setNewTeam({...newTeam, ajusteGS: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
+                  <AdminModal 
+                    isOpen={showAddTeam} 
+                    onClose={() => { setShowAddTeam(false); setEditingTeam(null); }}
+                    title={editingTeam ? 'Editar Equipa' : 'Nova Equipa'}
+                  >
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Nome da Equipa</label>
+                        <input 
+                          type="text" placeholder="Ex: G & SM" 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                          value={newTeam.nome} onChange={e => setNewTeam({...newTeam, nome: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Liga Associada</label>
+                        <select 
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                          value={newTeam.ligaId} onChange={e => setNewTeam({...newTeam, ligaId: e.target.value})}
+                        >
+                          <option value="">Escolher Liga</option>
+                          {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Cidade</label>
+                          <input 
+                            type="text" placeholder="Luanda" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                            value={newTeam.cidade} onChange={e => setNewTeam({...newTeam, cidade: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">URL do Logo</label>
+                          <input 
+                            type="text" placeholder="https://..." 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                            value={newTeam.logo} onChange={e => setNewTeam({...newTeam, logo: e.target.value})}
+                          />
                         </div>
                       </div>
 
-                      <button onClick={handleCreateTeam} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
+                      <div className="pt-2 space-y-3">
+                         <p className="text-[10px] font-black text-accent uppercase tracking-[0.2em] ml-1">Ajustes de Pontuação</p>
+                         <div className="grid grid-cols-3 gap-2">
+                           <div className="space-y-1">
+                             <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Pts Extra</label>
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajustePontos} onChange={e => setNewTeam({...newTeam, ajustePontos: parseInt(e.target.value) || 0})} />
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GM Extra</label>
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGM} onChange={e => setNewTeam({...newTeam, ajusteGM: parseInt(e.target.value) || 0})} />
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GS Extra</label>
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGS} onChange={e => setNewTeam({...newTeam, ajusteGS: parseInt(e.target.value) || 0})} />
+                           </div>
+                         </div>
+                      </div>
+
+                      <button onClick={handleCreateTeam} className="w-full bg-accent text-white font-bold py-5 rounded-2xl text-xs uppercase shadow-lg shadow-accent/20 mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]">
                         {editingTeam ? 'GUARDAR ALTERAÇÕES' : 'CRIAR EQUIPA'}
                       </button>
-                    </motion.div>
-                  )}
+                    </div>
+                  </AdminModal>
 
                   <div className="space-y-3">
-                    {teams.map(t => (
-                      <div key={t.id} className="glass p-4 rounded-2xl flex items-center justify-between gap-4">
+                    {filteredTeams.map(t => (
+                      <div key={t.id} className="glass p-5 rounded-[2rem] border border-white/5 flex items-center justify-between gap-4 group hover:border-accent/20 transition-all">
                         <div className="flex items-center gap-4">
-                          <img src={t.logo} className="w-10 h-10 object-contain" referrerPolicy="no-referrer" />
+                          <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center p-2">
+                            <img src={t.logo} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          </div>
                           <div>
-                            <p className="font-bold text-sm">{t.nome}</p>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{leagues.find(l => l.id === t.ligaId)?.nome || 'Sem Liga'}</p>
+                            <p className="font-black italic text-sm text-white group-hover:text-accent transition-colors">{t.nome}</p>
+                            <div className="flex items-center gap-2">
+                               <Trophy size={10} className="text-white/20" />
+                               <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{leagues.find(l => l.id === t.ligaId)?.nome || 'Sem Liga'}</p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
                           <button 
                             onClick={() => { 
                               setEditingTeam(t); 
-                              setNewTeam({ 
-                                nome: t.nome, 
-                                ligaId: t.ligaId, 
-                                logo: t.logo || '', 
-                                cidade: t.cidade || '', 
-                                descricao: t.descricao || '',
-                                ajustePontos: t.ajustePontos || 0,
-                                ajusteGM: t.ajusteGM || 0,
-                                ajusteGS: t.ajusteGS || 0
-                              }); 
+                              setNewTeam({ nome: t.nome, ligaId: t.ligaId, logo: t.logo || '', cidade: t.cidade || '', descricao: t.descricao || '', ajustePontos: t.ajustePontos || 0, ajusteGM: t.ajusteGM || 0, ajusteGS: t.ajusteGS || 0 }); 
                               setShowAddTeam(true); 
                             }}
-                            className="p-2 px-3 bg-white/5 text-white/40 rounded-lg hover:text-accent transition-colors"
+                            className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
                           >
-                            <Edit size={14} />
+                            <Edit size={16} />
                           </button>
-                          <button onClick={() => handleDeleteTeam(t.id)} className="p-2 px-3 bg-red-500/10 text-red-500 rounded-lg">
-                            <Trash2 size={14} />
+                          <button onClick={() => handleDeleteTeam(t.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all">
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </div>
@@ -3413,43 +3577,59 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
               {activeCopasTab === 'jogadores' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-1">
-                    <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Jogadores</h3>
+                    <div className="flex items-center gap-2">
+                       <Users size={14} className="text-accent" />
+                       <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Jogadores</h3>
+                    </div>
                     <button 
-                      onClick={() => { setShowAddPlayer(!showAddPlayer); setEditingPlayer(null); setNewPlayer({ nome: '', posicao: 'ALA', numero: 10, equipaId: '' }); }} 
-                      className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
+                      onClick={() => { setShowAddPlayer(true); setEditingPlayer(null); setNewPlayer({ nome: '', posicao: 'ALA', numero: 10, equipaId: '', golos: 0, assistencias: 0, foto: '' }); }} 
+                      className="bg-accent text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-accent/20 flex items-center gap-2"
                     >
-                      {showAddPlayer ? <X size={12} /> : <Plus size={12} />}
-                      {showAddPlayer ? 'Fechar' : 'Novo Jogador'}
+                      <Plus size={14} />
+                      Novo Jogador
                     </button>
                   </div>
 
-                  {showAddPlayer && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass p-5 rounded-3xl border border-accent/20 space-y-3">
-                      <p className="text-[10px] font-black text-accent uppercase tracking-widest">{editingPlayer ? 'Editar Jogador' : 'Novo Jogador'}</p>
-                      <div className="grid grid-cols-2 gap-2">
+                  <AdminModal 
+                    isOpen={showAddPlayer} 
+                    onClose={() => { setShowAddPlayer(false); setEditingPlayer(null); }}
+                    title={editingPlayer ? 'Editar Jogador' : 'Novo Jogador'}
+                  >
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Nome Completo</label>
                         <input 
-                          type="text" placeholder="Nome Completo" 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
+                          type="text" placeholder="Ex: Edson da Silva" 
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                           value={newPlayer.nome} onChange={e => setNewPlayer({...newPlayer, nome: e.target.value})}
                         />
-                        <input 
-                          type="number" placeholder="Nº Camis." 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                          value={newPlayer.numero} onChange={e => setNewPlayer({...newPlayer, numero: parseInt(e.target.value) || 0})}
-                        />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Nº Camisola</label>
+                          <input 
+                            type="number" placeholder="10" 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
+                            value={newPlayer.numero} onChange={e => setNewPlayer({...newPlayer, numero: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Posição</label>
+                          <select 
+                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                            value={newPlayer.posicao} onChange={e => setNewPlayer({...newPlayer, posicao: e.target.value})}
+                          >
+                            <option value="GOL">GUARDA-REDES</option>
+                            <option value="FIXO">FIXO</option>
+                            <option value="ALA">ALA</option>
+                            <option value="PIVÔ">PIVÔ</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Equipa</label>
                         <select 
-                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                          value={newPlayer.posicao} onChange={e => setNewPlayer({...newPlayer, posicao: e.target.value})}
-                        >
-                          <option value="GOL">GUARDA-REDES</option>
-                          <option value="FIXO">FIXO</option>
-                          <option value="ALA">ALA</option>
-                          <option value="PIVÔ">PIVÔ</option>
-                        </select>
-                        <select 
-                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
                           value={newPlayer.equipaId} onChange={e => setNewPlayer({...newPlayer, equipaId: e.target.value})}
                         >
                           <option value="">Escolher Equipa</option>
@@ -3457,59 +3637,47 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </select>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Golos</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newPlayer.golos} onChange={e => setNewPlayer({...newPlayer, golos: parseInt(e.target.value) || 0})}
-                          />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.golos} onChange={e => setNewPlayer({...newPlayer, golos: parseInt(e.target.value) || 0})} />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Assist.</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newPlayer.assistencias} onChange={e => setNewPlayer({...newPlayer, assistencias: parseInt(e.target.value) || 0})}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Foto URL</label>
-                          <input 
-                            type="text" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newPlayer.foto} onChange={e => setNewPlayer({...newPlayer, foto: e.target.value})}
-                          />
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Assistências</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.assistencias} onChange={e => setNewPlayer({...newPlayer, assistencias: parseInt(e.target.value) || 0})} />
                         </div>
                       </div>
-                      <button onClick={handleCreatePlayer} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
+
+                      <button onClick={handleCreatePlayer} className="w-full bg-accent text-white font-bold py-5 rounded-2xl text-xs uppercase shadow-lg shadow-accent/20 mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]">
                         {editingPlayer ? 'GUARDAR ALTERAÇÕES' : 'ADICIONAR JOGADOR'}
                       </button>
-                    </motion.div>
-                  )}
+                    </div>
+                  </AdminModal>
 
                   <div className="space-y-3">
-                    {leaguePlayers.map(p => (
-                      <div key={p.id} className="glass p-4 rounded-2xl flex items-center justify-between gap-4">
+                    {filteredPlayers.map(p => (
+                      <div key={p.id} className="glass p-5 rounded-[2rem] border border-white/5 flex items-center justify-between gap-4 group hover:border-accent/20 transition-all">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-black text-accent text-lg">
+                          <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center font-black italic text-accent text-lg border border-accent/20">
                             {p.numero}
                           </div>
                           <div>
-                            <p className="font-bold text-sm">{p.nome}</p>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{p.posicao} • {teams.find(t => t.id === p.equipaId)?.nome || 'Sem Equipa'}</p>
+                            <p className="font-black italic text-sm text-white group-hover:text-accent transition-colors">{p.nome}</p>
+                            <div className="flex items-center gap-2">
+                               <ShieldCheck size={10} className="text-white/20" />
+                               <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{p.posicao} • {teams.find(t => t.id === p.equipaId)?.nome || 'Sem Equipa'}</p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
                           <button 
                             onClick={() => { setEditingPlayer(p); setNewPlayer({ nome: p.nome, posicao: p.posicao, numero: p.numero, equipaId: p.equipaId, golos: p.golos || 0, assistencias: p.assistencias || 0, foto: p.foto || '' }); setShowAddPlayer(true); }}
-                            className="p-2 px-3 bg-white/5 text-white/40 rounded-lg hover:text-accent transition-colors"
+                            className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
                           >
-                            <Edit size={14} />
+                            <Edit size={16} />
                           </button>
-                          <button onClick={() => handleDeletePlayer(p.id)} className="p-2 px-3 bg-red-500/10 text-red-500 rounded-lg">
-                            <Trash2 size={14} />
+                          <button onClick={() => handleDeletePlayer(p.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all">
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </div>
@@ -3520,81 +3688,80 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
 
               {/* Jogos Management */}
               {activeCopasTab === 'jogos' && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex justify-between items-center px-1">
-                    <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Jogos</h3>
+                    <div className="flex items-center gap-2">
+                       <Video size={14} className="text-accent" />
+                       <h3 className="text-[10px] font-black uppercase text-white/40 tracking-widest">Gestão de Jogos</h3>
+                    </div>
                     <button 
-                      onClick={() => { setShowAddMatch(!showAddMatch); setEditingMatch(null); setNewMatch({ equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO', ligaId: '', liga: '', jornada: 1, data: '', hora: '', local: '' }); }} 
-                      className="bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5"
+                      onClick={() => { setShowAddMatch(true); setEditingMatch(null); setNewMatch({ equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', golosA: 0, golosB: 0, tempo: '00:00', status: 'AGENDADO', ligaId: '', liga: '', jornada: 1, data: '', hora: '', local: '' }); }} 
+                      className="bg-accent text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-accent/20 flex items-center gap-2"
                     >
-                      {showAddMatch ? <X size={12} /> : <Plus size={12} />}
-                      {showAddMatch ? 'Fechar' : 'Novo Jogo'}
+                      <Plus size={14} />
+                      Novo Jogo
                     </button>
                   </div>
 
-                  {showAddMatch && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass p-5 rounded-3xl border border-accent/20 space-y-3">
-                      <p className="text-[10px] font-black text-accent uppercase tracking-widest">{editingMatch ? 'Editar Jogo' : 'Novo Jogo'}</p>
-                      
-                      <select 
-                        className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                        value={newMatch.ligaId} onChange={e => setNewMatch({...newMatch, ligaId: e.target.value})}
-                      >
-                        <option value="">Escolher Liga</option>
-                        {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-                      </select>
-
-                      <div className="grid grid-cols-2 gap-2">
+                  <AdminModal 
+                    isOpen={showAddMatch} 
+                    onClose={() => { setShowAddMatch(false); setEditingMatch(null); }}
+                    title={editingMatch ? 'Editar Jogo' : 'Novo Jogo'}
+                  >
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Escolher Liga</label>
                         <select 
-                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
-                          value={newMatch.equipaAId} onChange={e => setNewMatch({...newMatch, equipaAId: e.target.value})}
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                          value={newMatch.ligaId} onChange={e => setNewMatch({...newMatch, ligaId: e.target.value})}
                         >
-                          <option value="">Equipa A</option>
-                          {teams.filter(t => !newMatch.ligaId || t.ligaId === newMatch.ligaId).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                        </select>
-                        <select 
-                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
-                          value={newMatch.equipaBId} onChange={e => setNewMatch({...newMatch, equipaBId: e.target.value})}
-                        >
-                          <option value="">Equipa B</option>
-                          {teams.filter(t => !newMatch.ligaId || t.ligaId === newMatch.ligaId).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                          <option value="">Escolher Liga</option>
+                          {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
                         </select>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Golos A</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newMatch.golosA} onChange={e => setNewMatch({...newMatch, golosA: parseInt(e.target.value) || 0})}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Golos B</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newMatch.golosB} onChange={e => setNewMatch({...newMatch, golosB: parseInt(e.target.value) || 0})}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Tempo / Minuto</label>
-                          <input 
-                            type="text" placeholder="Ex: 12' ou FIM" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                            value={newMatch.tempo} onChange={e => setNewMatch({...newMatch, tempo: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Status</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Equipa A</label>
                           <select 
-                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent outline-none"
-                            value={newMatch.status} onChange={e => setNewMatch({...newMatch, status: e.target.value as any})}
+                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                            value={newMatch.equipaAId} onChange={e => setNewMatch({...newMatch, equipaAId: e.target.value})}
                           >
+                            <option value="">Equipa A</option>
+                            {teams.filter(t => !newMatch.ligaId || t.ligaId === newMatch.ligaId).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Equipa B</label>
+                          <select 
+                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                            value={newMatch.equipaBId} onChange={e => setNewMatch({...newMatch, equipaBId: e.target.value})}
+                          >
+                            <option value="">Equipa B</option>
+                            {teams.filter(t => !newMatch.ligaId || t.ligaId === newMatch.ligaId).map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos A</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosA} onChange={e => setNewMatch({...newMatch, golosA: parseInt(e.target.value) || 0})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos B</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosB} onChange={e => setNewMatch({...newMatch, golosB: parseInt(e.target.value) || 0})} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Jornada</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newMatch.jornada} onChange={e => setNewMatch({...newMatch, jornada: parseInt(e.target.value) || 1})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Status</label>
+                          <select className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none" value={newMatch.status} onChange={e => setNewMatch({...newMatch, status: e.target.value as any})}>
                             <option value="agendado">🟡 AGENDADO</option>
                             <option value="ao_vivo">🔴 AO VIVO</option>
                             <option value="finalizado">⚫ FINALIZADO</option>
@@ -3602,128 +3769,100 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Jornada</label>
-                        <input 
-                          type="number" 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                          value={newMatch.jornada} onChange={e => setNewMatch({...newMatch, jornada: parseInt(e.target.value) || 1})}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Data</label>
-                          <input 
-                            type="date" 
-                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
-                            value={newMatch.data} onChange={e => setNewMatch({...newMatch, data: e.target.value})}
-                          />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Data</label>
+                          <input type="date" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.data} onChange={e => setNewMatch({...newMatch, data: e.target.value})} />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Hora</label>
-                          <input 
-                            type="time" 
-                            className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
-                            value={newMatch.hora} onChange={e => setNewMatch({...newMatch, hora: e.target.value})}
-                          />
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Hora</label>
+                          <input type="time" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.hora} onChange={e => setNewMatch({...newMatch, hora: e.target.value})} />
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Local (Pavilhão/Campo)</label>
-                        <input 
-                          type="text" placeholder="Ex: Pavilhão da Cidadela" 
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-accent outline-none"
-                          value={newMatch.local} onChange={e => setNewMatch({...newMatch, local: e.target.value})}
-                        />
-                      </div>
-
-                      <button onClick={handleCreateMatch} className="w-full bg-accent text-white font-bold py-4 rounded-xl text-[10px] uppercase shadow-lg shadow-accent/20">
+                      <button onClick={handleCreateMatch} className="w-full bg-accent text-white font-bold py-5 rounded-2xl text-xs uppercase shadow-lg shadow-accent/20 mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]">
                         {editingMatch ? 'GUARDAR RESULTADO' : 'CRIAR JOGO'}
                       </button>
-                    </motion.div>
-                  )}
+                    </div>
+                  </AdminModal>
 
-                  <div className="space-y-3">
-                    {matches.map(m => (
-                      <div key={m.id} className="glass p-4 rounded-3xl border border-white/5 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[8px] font-black text-accent bg-accent/10 px-2 py-0.5 rounded-full">{m.status}</span>
-                          <span className="text-[8px] text-white/30 font-bold uppercase">{m.liga}</span>
-                          <div className="flex gap-1">
-                             <button 
-                              onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }}
-                              className="p-1.5 bg-white/5 text-white/40 rounded-lg hover:text-accent"
-                            >
-                              <Edit size={12} />
-                            </button>
-                            <button onClick={() => handleDeleteMatch(m.id)} className="p-1.5 bg-red-500/10 text-red-500 rounded-lg">
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                  <div className="space-y-8">
+                    {/* Group by Liga and Jornada */}
+                    {Object.entries(filteredMatches.reduce((acc, m) => {
+                      const key = m.liga || 'Sem Liga';
+                      if (!acc[key]) acc[key] = {};
+                      const jKey = `Jornada ${m.jornada || 1}`;
+                      if (!acc[key][jKey]) acc[key][jKey] = [];
+                      acc[key][jKey].push(m);
+                      return acc;
+                    }, {} as Record<string, Record<string, Match[]>>)).map(([liga, jornadas]) => (
+                      <div key={liga} className="space-y-4">
+                        <div className="flex items-center gap-2 px-1">
+                           <Trophy size={14} className="text-accent" />
+                           <h4 className="text-[10px] font-black uppercase text-accent tracking-[0.2em]">{liga}</h4>
                         </div>
-                        <div className="flex items-center justify-between px-2">
-                          <div className="text-center flex-1">
-                            <p className="font-bold text-xs truncate max-w-[80px] mx-auto">{m.equipaA}</p>
-                          </div>
-                          <div className="bg-white/5 rounded-2xl px-4 py-2 flex items-center gap-3 border border-white/5">
-                            <span className="text-xl font-black italic">{m.golosA}</span>
-                            <span className="text-[10px] text-white/20 font-black">X</span>
-                            <span className="text-xl font-black italic">{m.golosB}</span>
-                          </div>
-                          <div className="text-center flex-1">
-                            <p className="font-bold text-xs truncate max-w-[80px] mx-auto">{m.equipaB}</p>
-                          </div>
-                        </div>
-                        <div className="text-center">
-                           <p className="text-[10px] font-black text-white/40 italic">{m.tempo}</p>
-                        </div>
+                        
+                        {Object.entries(jornadas).map(([jornada, items]) => (
+                          <div key={jornada} className="space-y-3">
+                             <div className="flex items-center gap-2 ml-4">
+                               <div className="w-1 h-1 bg-white/20 rounded-full" />
+                               <h5 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{jornada}</h5>
+                             </div>
+                             
+                             <div className="grid grid-cols-1 gap-3">
+                               {items.map(m => (
+                                 <div key={m.id} className="glass p-5 rounded-[2rem] border border-white/5 space-y-4 group hover:border-accent/20 transition-all">
+                                   <div className="flex justify-between items-center">
+                                      <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${m.status === 'ao_vivo' ? 'bg-red-500/10 text-red-500 animate-pulse' : m.status === 'finalizado' ? 'bg-white/10 text-white/40' : 'bg-accent/10 text-accent'}`}>
+                                        {m.status?.replace('_', ' ')}
+                                      </div>
+                                      <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 hover:text-accent transition-colors">
+                                          <Edit size={14} />
+                                        </button>
+                                        <button onClick={() => handleDeleteMatch(m.id)} className="p-2 hover:text-red-500 transition-colors">
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                   </div>
 
-                        {/* Quick Controls */}
-                        <div className="pt-2 border-t border-white/5 flex flex-wrap gap-2 justify-center">
-                          {m.status?.toLowerCase() === 'agendado' && (
-                            <button 
-                              onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: '0\'' })}
-                              className="px-3 py-1.5 bg-green-500/20 text-green-500 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5"
-                            >
-                              <Video size={12} />
-                              Iniciar Jogo
-                            </button>
-                          )}
-                          
-                          {(m.status?.toLowerCase() === 'ao_vivo' || m.status?.toLowerCase() === 'ao vivo') && (
-                            <>
-                              <button 
-                                onClick={() => handleQuickMatchUpdate(m.id, { golosA: (m.golosA || 0) + 1 })}
-                                className="px-3 py-1.5 bg-accent/20 text-accent rounded-lg text-[9px] font-black uppercase"
-                              >
-                                + Golo A
-                              </button>
-                              <button 
-                                onClick={() => handleQuickMatchUpdate(m.id, { golosB: (m.golosB || 0) + 1 })}
-                                className="px-3 py-1.5 bg-accent/20 text-accent rounded-lg text-[9px] font-black uppercase"
-                              >
-                                + Golo B
-                              </button>
-                              <button 
-                                onClick={() => handleQuickMatchUpdate(m.id, { status: 'finalizado', tempo: 'FIM' })}
-                                className="px-3 py-1.5 bg-white/10 text-white/60 rounded-lg text-[9px] font-black uppercase"
-                              >
-                                Finalizar
-                              </button>
-                            </>
-                          )}
+                                   <div className="flex items-center justify-between gap-4">
+                                      <div className="flex-1 text-center">
+                                        <p className="font-black italic text-xs uppercase tracking-tighter truncate">{m.equipaA}</p>
+                                      </div>
+                                      <div className="bg-white/5 rounded-2xl px-5 py-3 border border-white/5 shadow-inner flex items-center gap-4">
+                                        <span className={`text-2xl font-black italic ${m.status === 'ao_vivo' ? 'text-white' : 'text-white/60'}`}>{m.golosA}</span>
+                                        <div className="flex flex-col items-center">
+                                          <span className="text-[8px] font-black text-white/10">VS</span>
+                                          <span className="text-[10px] font-black text-accent italic">{m.tempo}</span>
+                                        </div>
+                                        <span className={`text-2xl font-black italic ${m.status === 'ao_vivo' ? 'text-white' : 'text-white/60'}`}>{m.golosB}</span>
+                                      </div>
+                                      <div className="flex-1 text-center">
+                                        <p className="font-black italic text-xs uppercase tracking-tighter truncate">{m.equipaB}</p>
+                                      </div>
+                                   </div>
 
-                          {m.status?.toLowerCase() === 'finalizado' && (
-                            <button 
-                              onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: 'RECOMEÇO' })}
-                              className="px-3 py-1.5 bg-white/5 text-white/30 rounded-lg text-[9px] font-black uppercase"
-                            >
-                              Reabrir
-                            </button>
-                          )}
-                        </div>
+                                   <div className="flex justify-center gap-2 pt-2 border-t border-white/5">
+                                      {(m.status?.toLowerCase() === 'ao_vivo' || m.status?.toLowerCase() === 'ao vivo') ? (
+                                        <>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosA: (m.golosA || 0) + 1 })} className="px-4 py-2 bg-accent/20 text-accent rounded-xl text-[9px] font-black uppercase">+ GOLO A</button>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosB: (m.golosB || 0) + 1 })} className="px-4 py-2 bg-accent/20 text-accent rounded-xl text-[9px] font-black uppercase">+ GOLO B</button>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'finalizado', tempo: 'FIM' })} className="px-4 py-2 bg-white/5 text-white/30 rounded-xl text-[9px] font-black uppercase">Finalizar</button>
+                                        </>
+                                      ) : m.status === 'agendado' ? (
+                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: '0\'' })} className="px-4 py-2 bg-green-500/20 text-green-500 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">
+                                          <Play size={10} /> INICIAR JOGO
+                                        </button>
+                                      ) : (
+                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: 'RECOMEÇO' })} className="px-4 py-2 bg-white/10 text-white/60 rounded-xl text-[9px] font-black uppercase">Reabrir Jogo</button>
+                                      )}
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -3745,8 +3884,9 @@ const NotificationsScreen = ({ notifications, onBack, onMarkAsRead }: {
   return (
     <div className="px-6 py-8 space-y-8 pb-24">
       <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 glass rounded-xl text-white/40">
-          <ChevronRight size={20} className="rotate-180" />
+        <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+          <ChevronLeft size={16} />
+          Voltar
         </button>
         <h2 className="text-2xl font-black italic uppercase tracking-tighter">Notificações</h2>
       </div>
@@ -3800,9 +3940,13 @@ const NotificationsScreen = ({ notifications, onBack, onMarkAsRead }: {
   );
 };
 
-const ReservasScreen = () => (
+const ReservasScreen = ({ onBack }: { onBack: () => void }) => (
   <div className="px-6 py-6 space-y-8 pb-24">
     <div className="space-y-4">
+      <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+        <ChevronLeft size={16} />
+        Voltar
+      </button>
       <h2 className="text-2xl font-black italic">Reservas</h2>
       <div className="flex justify-between items-center bg-white/5 rounded-2xl p-4 border border-white/5">
         <div className="text-center space-y-1">
@@ -3871,7 +4015,7 @@ const ReservasScreen = () => (
   </div>
 );
 
-const ScoutScreen = ({ players }: { players: Player[] }) => {
+const ScoutScreen = ({ players, onBack }: { players: Player[], onBack: () => void }) => {
   const [search, setSearch] = useState('');
 
   const filteredPlayers = players.filter(p => 
@@ -3881,6 +4025,10 @@ const ScoutScreen = ({ players }: { players: Player[] }) => {
 
   return (
     <div className="px-6 py-6 space-y-6 pb-24">
+      <button onClick={onBack} className="flex items-center gap-2 text-white/40 hover:text-accent transition-all text-[10px] font-black uppercase tracking-[0.2em] w-fit">
+        <ChevronLeft size={16} />
+        Voltar
+      </button>
       <div className="relative">
         <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
         <input 
@@ -4402,13 +4550,13 @@ const [isGuest, setIsGuest] = useState(false);
   const renderScreen = () => {
     switch (activeScreen) {
       case 'inicio': return <InicioScreen setScreen={handleScreenChange} user={user} />;
-      case 'pelada': return <PeladaScreen />;
-      case 'live': return <LiveScreen games={games} />;
-      case 'competicoes': return <CompeticoesScreen leagues={leagues} teams={teams} players={leaguePlayers} matches={games} />;
-      case 'mercado': return <MercadoScreen products={products} onAddProduct={handleAddProduct} user={user} />;
-      case 'perfil': return <PerfilScreen user={user} currentUser={currentUser} onLogout={handleLogout} onUpgrade={handleUpgrade} onAdminClick={handleAdminClick} onAboutClick={() => setActiveScreen('sobre')} />;
-      case 'scout': return <ScoutScreen players={players} />;
-      case 'reservas': return <ReservasScreen />;
+      case 'pelada': return <PeladaScreen onBack={() => handleScreenChange('inicio')} />;
+      case 'live': return <LiveScreen games={games} onBack={() => handleScreenChange('inicio')} />;
+      case 'competicoes': return <CompeticoesScreen leagues={leagues} teams={teams} players={leaguePlayers} matches={games} onBack={() => handleScreenChange('inicio')} />;
+      case 'mercado': return <MercadoScreen products={products} onAddProduct={handleAddProduct} user={user} onBack={() => handleScreenChange('inicio')} />;
+      case 'perfil': return <PerfilScreen user={user} currentUser={currentUser} onLogout={handleLogout} onUpgrade={handleUpgrade} onAdminClick={handleAdminClick} onAboutClick={() => setActiveScreen('sobre')} onBack={() => handleScreenChange('inicio')} />;
+      case 'scout': return <ScoutScreen players={players} onBack={() => handleScreenChange('inicio')} />;
+      case 'reservas': return <ReservasScreen onBack={() => handleScreenChange('inicio')} />;
       case 'monetizacao': return <MonetizationScreen onPay={handleConfirmUpgrade} onBack={() => setActiveScreen('perfil')} />;
       case 'ranking': return <RankingScreen posts={posts} onBack={() => setActiveScreen('inicio')} />;
       case 'convite': return <ConviteScreen onBack={() => setActiveScreen('inicio')} />;
