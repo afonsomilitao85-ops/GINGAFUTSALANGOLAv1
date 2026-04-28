@@ -81,7 +81,7 @@ import {
 } from './firebase';
 
 // --- Types ---
-type Screen = 'inicio' | 'pelada' | 'live' | 'competicoes' | 'mercado' | 'perfil' | 'scout' | 'reservas' | 'monetizacao' | 'ranking' | 'convite' | 'notificacoes' | 'admin' | 'sobre';
+type Screen = 'inicio' | 'pelada' | 'live' | 'competicoes' | 'mercado' | 'perfil' | 'scout' | 'reservas' | 'monetizacao' | 'ranking' | 'convite' | 'notificacoes' | 'admin' | 'sobre' | 'messenger';
 
 interface Notification {
   id: string;
@@ -329,10 +329,11 @@ const Navbar = ({ activeScreen, setActiveScreen }: { activeScreen: Screen, setAc
   );
 };
 
-const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: { 
+const Header = ({ title, onScoutClick, onNotificationClick, onChatClick, hasUnread }: { 
   title: string, 
   onScoutClick?: () => void,
   onNotificationClick?: () => void,
+  onChatClick?: () => void,
   hasUnread?: boolean
 }) => (
   <header className="sticky top-0 glass border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center z-40">
@@ -349,12 +350,12 @@ const Header = ({ title, onScoutClick, onNotificationClick, hasUnread }: {
       </div>
       <h1 className="text-lg sm:text-xl font-bold tracking-tight">{title}</h1>
     </div>
-    <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex items-center gap-1 sm:gap-2">
       <button 
-        onClick={onScoutClick}
+        onClick={onChatClick}
         className="p-2 rounded-xl hover:bg-white/5 transition-colors text-white/70 hover:text-white"
       >
-        <Search size={20} />
+        <MessageCircle size={20} />
       </button>
       <button 
         onClick={onNotificationClick}
@@ -1554,15 +1555,15 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
                                   </div>
                                   
                                   <div className="flex items-center gap-3 px-5 py-4 bg-white/5 rounded-[1.5rem] border border-white/10 shadow-inner min-w-[100px] justify-center">
-                                    {isScheduled && (match.golosA === 0 && match.golosB === 0) ? (
-                                      <span className="text-xs font-black italic text-accent tracking-tighter uppercase whitespace-nowrap">
-                                        {match.hora ? `🕒 ${match.hora}` : "VS"}
+                                    {isScheduled && (!match.golosA && !match.golosB || (match.golosA === 0 && match.golosB === 0)) ? (
+                                      <span className="text-sm font-black italic text-accent tracking-tighter uppercase whitespace-nowrap">
+                                        {match.hora || "VS"}
                                       </span>
                                     ) : (
                                       <>
-                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosA || 0}</span>
+                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosA ?? 0}</span>
                                         <span className="text-white/10 font-black text-xl">-</span>
-                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosB || 0}</span>
+                                        <span className={`text-3xl font-black italic leading-none ${isLive ? 'text-white' : 'text-white/80'}`}>{match.golosB ?? 0}</span>
                                       </>
                                     )}
                                   </div>
@@ -3218,39 +3219,45 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         </button>
       </div>
 
-      {/* Global Filters */}
-      <div className="space-y-4">
+      {/* Barra de Ferramentas / Filtros */}
+      <div className="space-y-4 glass p-6 rounded-[2.5rem] border border-white/10 shadow-2xl">
         <div className="relative">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-accent/40" />
           <input 
             type="text" 
-            placeholder="Procurar (nome, equipa, email...)"
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-accent/50 outline-none transition-all"
+            placeholder="Pesquisa global..."
+            className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-accent/40 outline-none transition-all placeholder:text-white/20"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
 
         {activeTab === 'copas' && (
-          <div className="grid grid-cols-2 gap-2">
-            <select 
-              value={filterLeagueId}
-              onChange={e => setFilterLeagueId(e.target.value)}
-              className="bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none"
-            >
-              <option value="">Todas as Ligas</option>
-              {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-            </select>
-            <select 
-              value={filterJornada}
-              onChange={e => setFilterJornada(e.target.value ? parseInt(e.target.value) : '')}
-              className="bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none"
-            >
-              <option value="">Todas Jornadas</option>
-              {[...Array(30)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>Jornada {i + 1}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase text-white/30 tracking-widest ml-1">Filtrar por Liga</label>
+              <select 
+                value={filterLeagueId}
+                onChange={e => setFilterLeagueId(e.target.value)}
+                className="w-full bg-[#0A0F1C] border border-white/5 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none appearance-none"
+              >
+                <option value="">Todas as Ligas</option>
+                {leagues.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase text-white/30 tracking-widest ml-1">Filtrar Jornada</label>
+              <select 
+                value={filterJornada}
+                onChange={e => setFilterJornada(e.target.value ? parseInt(e.target.value) : '')}
+                className="w-full bg-[#0A0F1C] border border-white/5 rounded-xl px-4 py-3 text-[10px] font-bold text-white/60 focus:border-accent outline-none appearance-none"
+              >
+                <option value="">Todas</option>
+                {[...Array(38)].map((_, i) => (
+                  <option key={i + 1} value={i + 1}>Jornada {i + 1}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -3789,7 +3796,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                   <div className="space-y-8">
                     {/* Group by Liga and Jornada */}
                     {Object.entries(filteredMatches.reduce((acc, m) => {
-                      const key = m.liga || 'Sem Liga';
+                      const key = leagues.find(l => l.id === m.ligaId)?.nome || m.liga || 'Sem Liga';
                       if (!acc[key]) acc[key] = {};
                       const jKey = `Jornada ${m.jornada || 1}`;
                       if (!acc[key][jKey]) acc[key][jKey] = [];
@@ -3798,69 +3805,74 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                     }, {} as Record<string, Record<string, Match[]>>)).map(([liga, jornadas]) => (
                       <div key={liga} className="space-y-4">
                         <div className="flex items-center gap-2 px-1">
-                           <Trophy size={14} className="text-accent" />
-                           <h4 className="text-[10px] font-black uppercase text-accent tracking-[0.2em]">{liga}</h4>
+                          <Trophy size={14} className="text-accent" />
+                          <h4 className="text-[10px] font-black uppercase text-accent tracking-[0.2em]">{liga}</h4>
                         </div>
                         
                         {Object.entries(jornadas).map(([jornada, items]) => (
                           <div key={jornada} className="space-y-3">
-                             <div className="flex items-center gap-2 ml-4">
-                               <div className="w-1 h-1 bg-white/20 rounded-full" />
-                               <h5 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{jornada}</h5>
-                             </div>
-                             
-                             <div className="grid grid-cols-1 gap-3">
-                               {items.map(m => (
-                                 <div key={m.id} className="glass p-5 rounded-[2rem] border border-white/5 space-y-4 group hover:border-accent/20 transition-all">
-                                   <div className="flex justify-between items-center">
-                                      <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${m.status === 'ao_vivo' ? 'bg-red-500/10 text-red-500 animate-pulse' : m.status === 'finalizado' ? 'bg-white/10 text-white/40' : 'bg-accent/10 text-accent'}`}>
-                                        {m.status?.replace('_', ' ')}
+                            <div className="flex items-center gap-2 ml-4">
+                              <div className="w-1 h-1 bg-white/20 rounded-full" />
+                              <h5 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{jornada}</h5>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-3">
+                              {items.map(m => {
+                                const status = m.status?.toLowerCase() || 'finalizado';
+                                const isLive = status === 'ao_vivo' || status === 'ao vivo';
+                                const isScheduled = status === 'agendado';
+                                return (
+                                  <div key={m.id} className="glass p-5 rounded-[2rem] border border-white/5 space-y-4 group hover:border-accent/20 transition-all">
+                                    <div className="flex justify-between items-center">
+                                      <div className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${isLive ? 'bg-red-500 text-white animate-pulse' : isScheduled ? 'bg-yellow-500/20 text-yellow-500' : 'bg-white/10 text-white/40'}`}>
+                                        {status.replace('_', ' ')}
                                       </div>
-                                      <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 hover:text-accent transition-colors">
+                                      <div className="flex gap-2">
+                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 bg-white/5 rounded-lg hover:text-accent transition-colors">
                                           <Edit size={14} />
                                         </button>
-                                        <button onClick={() => handleDeleteMatch(m.id)} className="p-2 hover:text-red-500 transition-colors">
+                                        <button onClick={() => handleDeleteMatch(m.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
                                           <Trash2 size={14} />
                                         </button>
                                       </div>
-                                   </div>
+                                    </div>
 
-                                   <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center justify-between gap-4">
                                       <div className="flex-1 text-center">
-                                        <p className="font-black italic text-xs uppercase tracking-tighter truncate">{m.equipaA}</p>
+                                        <p className="font-black italic text-[11px] uppercase tracking-tighter truncate leading-none">{m.equipaA}</p>
                                       </div>
-                                      <div className="bg-white/5 rounded-2xl px-5 py-3 border border-white/5 shadow-inner flex items-center gap-4">
-                                        <span className={`text-2xl font-black italic ${m.status === 'ao_vivo' ? 'text-white' : 'text-white/60'}`}>{m.golosA}</span>
+                                      <div className="bg-white/5 rounded-2xl px-4 py-2 border border-white/5 shadow-inner flex items-center gap-3">
+                                        <span className={`text-xl font-black italic ${isLive ? 'text-white' : 'text-white/30'}`}>{m.golosA ?? 0}</span>
                                         <div className="flex flex-col items-center">
-                                          <span className="text-[8px] font-black text-white/10">VS</span>
-                                          <span className="text-[10px] font-black text-accent italic">{m.tempo}</span>
+                                          <span className="text-[7px] font-black text-white/10 tracking-[0.2em]">VS</span>
+                                          <span className="text-[9px] font-black text-accent italic">{m.hora || m.tempo}</span>
                                         </div>
-                                        <span className={`text-2xl font-black italic ${m.status === 'ao_vivo' ? 'text-white' : 'text-white/60'}`}>{m.golosB}</span>
+                                        <span className={`text-xl font-black italic ${isLive ? 'text-white' : 'text-white/30'}`}>{m.golosB ?? 0}</span>
                                       </div>
                                       <div className="flex-1 text-center">
-                                        <p className="font-black italic text-xs uppercase tracking-tighter truncate">{m.equipaB}</p>
+                                        <p className="font-black italic text-[11px] uppercase tracking-tighter truncate leading-none">{m.equipaB}</p>
                                       </div>
-                                   </div>
+                                    </div>
 
-                                   <div className="flex justify-center gap-2 pt-2 border-t border-white/5">
-                                      {(m.status?.toLowerCase() === 'ao_vivo' || m.status?.toLowerCase() === 'ao vivo') ? (
+                                    <div className="flex justify-center gap-2 pt-2 border-t border-white/5">
+                                      {isLive ? (
                                         <>
-                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosA: (m.golosA || 0) + 1 })} className="px-4 py-2 bg-accent/20 text-accent rounded-xl text-[9px] font-black uppercase">+ GOLO A</button>
-                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosB: (m.golosB || 0) + 1 })} className="px-4 py-2 bg-accent/20 text-accent rounded-xl text-[9px] font-black uppercase">+ GOLO B</button>
-                                          <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'finalizado', tempo: 'FIM' })} className="px-4 py-2 bg-white/5 text-white/30 rounded-xl text-[9px] font-black uppercase">Finalizar</button>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosA: (m.golosA || 0) + 1 })} className="px-3 py-2 bg-accent/10 text-accent rounded-xl text-[8px] font-black uppercase">+ GOLO A</button>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { golosB: (m.golosB || 0) + 1 })} className="px-3 py-2 bg-accent/10 text-accent rounded-xl text-[8px] font-black uppercase">+ GOLO B</button>
+                                          <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'finalizado', tempo: 'FIM' })} className="px-3 py-2 bg-white/5 text-white/30 rounded-xl text-[8px] font-black uppercase">Finalizar</button>
                                         </>
-                                      ) : m.status === 'agendado' ? (
-                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: '0\'' })} className="px-4 py-2 bg-green-500/20 text-green-500 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">
-                                          <Play size={10} /> INICIAR JOGO
+                                      ) : isScheduled ? (
+                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: '0\'' })} className="px-4 py-2 bg-accent text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-2 items-center justify-center w-full">
+                                          <PlayCircle size={14} /> INICIAR JOGO
                                         </button>
                                       ) : (
-                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: 'RECOMEÇO' })} className="px-4 py-2 bg-white/10 text-white/60 rounded-xl text-[9px] font-black uppercase">Reabrir Jogo</button>
+                                        <button onClick={() => handleQuickMatchUpdate(m.id, { status: 'ao_vivo', tempo: 'RECOMEÇO' })} className="px-4 py-2 bg-white/5 text-white/20 rounded-xl text-[9px] font-black uppercase w-full">Reabrir Jogo</button>
                                       )}
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -4060,6 +4072,58 @@ const ScoutScreen = ({ players, onBack }: { players: Player[], onBack: () => voi
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MessengerScreen = ({ onBack }: { onBack: () => void }) => {
+  return (
+    <div className="h-full flex flex-col pt-6 pb-24 px-6 bg-transparent relative overflow-hidden">
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={onBack} className="p-2 glass rounded-xl text-white/40 shadow-lg">
+          <ChevronLeft size={20} />
+        </button>
+        <h2 className="text-2xl font-black italic uppercase tracking-tighter">Mensagens</h2>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+        <div className="relative">
+          <div className="w-24 h-24 bg-accent/20 rounded-full flex items-center justify-center relative z-10">
+            <MessageCircle size={48} className="text-accent" />
+          </div>
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ repeat: Infinity, duration: 3 }}
+            className="absolute inset-0 bg-accent/30 rounded-full blur-2xl"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <h3 className="text-xl font-black italic">CONVERSAS PRIVADAS</h3>
+          <p className="text-xs text-white/50 max-w-[240px] mx-auto leading-relaxed">
+            O sistema de mensagens em tempo real está a ser afinado para o lançamento da GingaFutsal Cloud.
+          </p>
+        </div>
+
+        <div className="glass p-6 rounded-3xl border border-white/5 space-y-4 w-full">
+          <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent">
+              <Zap size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] font-black text-accent uppercase tracking-widest leading-none">GINGA CLOUD</p>
+              <p className="text-[9px] font-bold text-white/40 uppercase mt-1">Lançamento em Breve</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => window.open('https://wa.me/244923743254', '_blank')}
+            className="w-full bg-[#25D366] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <Phone size={18} />
+            <span>FALAR COM SUPORTE</span>
+          </button>
         </div>
       </div>
     </div>
@@ -4562,6 +4626,7 @@ const [isGuest, setIsGuest] = useState(false);
       case 'convite': return <ConviteScreen onBack={() => setActiveScreen('inicio')} />;
       case 'notificacoes': return <NotificationsScreen notifications={notifications} onBack={() => setActiveScreen('inicio')} onMarkAsRead={handleMarkAsRead} />;
       case 'sobre': return <SobreScreen onBack={() => setActiveScreen('perfil')} />;
+      case 'messenger': return <MessengerScreen onBack={() => setActiveScreen('inicio')} />;
       case 'admin': {
         const isAdmin = currentUser?.role === 'admin' || localStorage.getItem("isAdmin") === "true";
         if (!isAdmin) {
@@ -4589,7 +4654,7 @@ const [isGuest, setIsGuest] = useState(false);
           </motion.div>
         )}
       </AnimatePresence>
-      {activeScreen !== 'sobre' && (
+      {activeScreen !== 'sobre' && activeScreen !== 'messenger' && (
         <Header 
           title={
             activeScreen === 'inicio' ? 'Início' :
@@ -4607,6 +4672,7 @@ const [isGuest, setIsGuest] = useState(false);
             activeScreen === 'admin' ? 'Área Admin' :
             activeScreen.toUpperCase()
           } 
+          onChatClick={() => handleScreenChange('messenger')}
           onScoutClick={() => handleScreenChange('scout')}
           onNotificationClick={() => handleScreenChange('notificacoes')}
           hasUnread={notifications.some(n => !n.isRead)}
