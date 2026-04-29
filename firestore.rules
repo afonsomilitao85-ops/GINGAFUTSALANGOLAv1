@@ -76,7 +76,9 @@ service cloud.firestore {
              (!('golosA' in data) || (data.golosA is number)) &&
              (!('golosB' in data) || (data.golosB is number)) &&
              (!('tempo' in data) || (data.tempo is string && data.tempo.size() <= 20)) &&
-             (!('jornada' in data) || (data.jornada is number));
+             (!('jornada' in data) || (data.jornada is number)) &&
+             (!('grupo' in data) || (data.grupo is string || data.grupo == null)) &&
+             (!('ligaId' in data) || (data.ligaId is string));
     }
 
     // --- Collections ---
@@ -126,6 +128,20 @@ service cloud.firestore {
     match /leagues/{id} { allow read: if true; allow write: if isAdmin(); }
     match /teams/{id} { allow read: if true; allow write: if isAdmin(); }
     match /league_players/{id} { allow read: if true; allow write: if isAdmin(); }
+
+    // Participations
+    match /participations/{id} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidParticipation(incoming());
+      allow delete: if isAdmin();
+    }
+
+    function isValidParticipation(data) {
+      return data.keys().hasAll(['equipaId', 'competicaoId']) &&
+             data.equipaId is string && data.competicaoId is string &&
+             (!('grupo' in data) || (data.grupo is string || data.grupo == null)) &&
+             (!('criadoEm' in data) || (data.criadoEm is number));
+    }
 
     // Ads (Marketplace)
     match /ads/{adId} {

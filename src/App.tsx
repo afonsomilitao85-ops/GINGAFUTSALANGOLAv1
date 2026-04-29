@@ -130,6 +130,7 @@ interface Match {
   status: 'agendado' | 'ao_vivo' | 'finalizado' | 'AGENDADO' | 'AO VIVO' | 'FINALIZADO';
   ligaId?: string;
   liga?: string;
+  grupo?: string | null;
   data?: any;
   jornada?: number;
   hora?: string;
@@ -143,6 +144,7 @@ interface League {
   regiao: string;
   logo?: string;
   temporada?: string;
+  modoCompeticao?: 'liga' | 'grupos';
   createdBy: string;
 }
 
@@ -151,6 +153,7 @@ interface Team {
   nome: string;
   logo?: string;
   ligaId: string;
+  grupo?: string | null;
   createdBy: string;
   // Campos de Classificação
   vitorias?: number;
@@ -164,6 +167,16 @@ interface Team {
   ajustePontos?: number;
   ajusteGM?: number;
   ajusteGS?: number;
+  ajusteTotalGM?: number;
+  ajusteTotalGS?: number;
+}
+
+interface Participation {
+  id: string;
+  equipaId: string;
+  competicaoId: string;
+  grupo?: string | null;
+  criadoEm: number;
 }
 
 interface LeaguePlayer {
@@ -494,21 +507,31 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
     const cleanEmail = email.toLowerCase().trim();
     const cleanPassword = password.trim();
 
+    if (!cleanEmail.includes('@') && cleanEmail !== 'admin') {
+      setError('Por favor, introduz um email válido (ex: nome@gingafutsal.com).');
+      setIsLoading(false);
+      return;
+    }
+
+    console.log(`Tentativa de autenticação iniciada para: ${cleanEmail}`);
+
     const attemptAuth = async (retryCount = 0): Promise<void> => {
       try {
         if (isRegistering) {
+          console.log("Tentando registar novo utilizador...");
           await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         } else {
           try {
             // Check for Master Key Bypass (requested by user)
             if (cleanEmail === ADMIN_EMAIL && cleanPassword === MASTER_KEY) {
-              console.log("Master key detected for admin.");
+              console.log("Master key detetada. Iniciando fluxo de bypass de administrador...");
               // First, try to register them if they don't exist
               try {
                 await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
               } catch (regErr: any) {
                 // If already exists, just sign in
                 if (regErr.code === 'auth/email-already-in-use') {
+                  console.log("Administrador já existe, efetuando login...");
                   await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
                 } else {
                   throw regErr;
@@ -517,10 +540,14 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
               return;
             }
 
+            console.log("Tentando login com credenciais...");
             await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            console.log("Login efetuado com sucesso.");
           } catch (loginErr: any) {
+            console.error("Erro no login:", loginErr.code, loginErr.message);
             // Auto-setup admin on first login attempt if they don't exist
-            if (loginErr.code === 'auth/user-not-found' && cleanEmail === ADMIN_EMAIL) {
+            if ((loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential') && cleanEmail === ADMIN_EMAIL) {
+              console.log("Admin não encontrado ou credenciais inválidas para o email esperado. Tentando auto-setup...");
               await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
               return;
             }
@@ -528,9 +555,10 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
           }
         }
       } catch (err: any) {
+        console.error("Erro durante a fase de autenticação:", err);
         // If it's a network error and we haven't retried too many times, try again after a short delay
-        if (err.code === 'auth/network-request-failed' && retryCount < 2) {
-          console.log(`Network error, retrying... (Attempt ${retryCount + 1})`);
+        if ((err.code === 'auth/network-request-failed' || err.message?.includes('network-error')) && retryCount < 2) {
+          console.warn(`Erro de rede detetado, tentando novamente em 1.5s... (Tentativa ${retryCount + 1})`);
           await new Promise(resolve => setTimeout(resolve, 1500));
           return attemptAuth(retryCount + 1);
         }
@@ -538,10 +566,23 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
       }
     };
 
+    // Use a race to avoid infinite wait if Firebase hangs
     try {
-      await attemptAuth();
+      const authPromise = attemptAuth();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+
+      await Promise.race([authPromise, timeoutPromise]);
+    } catch (err: any) {
+      if (err.message === 'timeout') {
+        setError('A autenticação está a demorar mais do que o esperado. Verifica a tua ligação ou tenta abrir a app noutra janela.');
+      } else {
+        setError(getFriendlyErrorMessage(err));
+      }
     } finally {
       setIsLoading(false);
+      console.log("Fluxo de autenticação concluído.");
     }
   };
 
@@ -670,8 +711,9 @@ const LoginScreen = ({ onBack }: { onBack: () => void }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@ginga.com"
+                  placeholder="afonso...@gmail.com"
                   className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-accent transition-colors"
+                  autoFocus={false}
                 />
               </div>
             </div>
@@ -1129,9 +1171,10 @@ const LiveScreen = ({ games, onBack }: { games: Match[], onBack: () => void }) =
   );
 };
 
-const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: { 
+const CompeticoesScreen = ({ leagues, teams, participations, players, matches, onBack }: { 
   leagues: League[], 
   teams: Team[], 
+  participations: Participation[],
   players: LeaguePlayer[],
   matches: Match[],
   onBack: () => void
@@ -1140,9 +1183,33 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
   const [activeTab, setActiveTab] = useState<'tabela' | 'jogos' | 'equipas'>('tabela');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [selectedJornada, setSelectedJornada] = useState<number | 'todas'>('todas');
+  const [selectedGroup, setSelectedGroup] = useState<string | 'todos'>('todos');
 
-  const calculateStandings = (leagueId: string) => {
-    const standings = teams.filter(t => t.ligaId === leagueId).map(team => ({
+  const getLeagueTeams = (leagueId: string, group: string | 'todos' = 'todos') => {
+    // 1. Tentar obter pelo novo modelo (participations)
+    const leaguePartics = participations.filter(p => p.competicaoId === leagueId);
+    
+    let filteredTeams: Team[] = [];
+    
+    if (leaguePartics.length > 0) {
+      filteredTeams = teams.filter(t => leaguePartics.some(p => p.equipaId === t.id))
+        .map(t => {
+          const p = leaguePartics.find(part => part.equipaId === t.id);
+          return { ...t, grupo: p?.grupo || null };
+        });
+    } else {
+      // 2. Modelo antigo (fallback)
+      filteredTeams = teams.filter(t => t.ligaId === leagueId);
+    }
+
+    if (group !== 'todos') {
+      return filteredTeams.filter(t => t.grupo === group);
+    }
+    return filteredTeams;
+  };
+
+  const calculateStandings = (leagueId: string, group: string | null = null) => {
+    const standings = getLeagueTeams(leagueId, group || 'todos').map(team => ({
       ...team,
       played: 0,
       won: 0,
@@ -1156,6 +1223,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
 
     const leagueMatches = matches.filter(m => 
       m.ligaId === leagueId && 
+      (group ? m.grupo === group : true) &&
       (m.status?.toLowerCase() === 'finalizado')
     );
 
@@ -1208,19 +1276,6 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
     );
   };
 
-  const leagueTeams = teams.filter(t => t.ligaId === selectedLeague?.id);
-  const leagueMatches = matches
-    .filter(m => m.ligaId === selectedLeague?.id)
-    .sort((a, b) => {
-      if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
-      if (a.timestamp) return -1;
-      if (b.timestamp) return 1;
-      
-      const valA = typeof a.data === 'number' ? a.data : 0;
-      const valB = typeof b.data === 'number' ? b.data : 0;
-      return valB - valA;
-    });
-
   const formatDateLabel = (dateStr: string) => {
     if (!dateStr || dateStr === 'Sem Data' || typeof dateStr !== 'string') return 'Data a definir';
     try {
@@ -1233,8 +1288,20 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
     }
   };
 
+  const currentLeagueTeams = selectedLeague ? getLeagueTeams(selectedLeague.id) : [];
   const teamPlayers = players.filter(p => p.equipaId === selectedTeam?.id);
   const standings = selectedLeague ? calculateStandings(selectedLeague.id) : [];
+  const leagueMatches = matches
+    .filter(m => m.ligaId === selectedLeague?.id)
+    .sort((a, b) => {
+      if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
+      if (a.timestamp) return -1;
+      if (b.timestamp) return 1;
+      
+      const valA = typeof a.data === 'number' ? a.data : 0;
+      const valB = typeof b.data === 'number' ? b.data : 0;
+      return valB - valA;
+    });
 
   if (selectedTeam) {
     const teamStats = standings.find(t => t.id === selectedTeam.id);
@@ -1378,79 +1445,127 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
           ))}
         </div>
 
+        {selectedLeague.modoCompeticao === 'grupos' && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
+            <button 
+              onClick={() => setSelectedGroup('todos')}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${selectedGroup === 'todos' ? 'bg-accent/20 text-accent border border-accent/30' : 'glass text-white/40 border border-white/5'}`}
+            >
+              Todos Grupos
+            </button>
+            {Array.from(new Set([
+              ...teams.filter(t => t.ligaId === selectedLeague?.id).map(t => t.grupo),
+              ...matches.filter(m => m.ligaId === selectedLeague?.id).map(m => m.grupo)
+            ])).filter(g => g).sort().map(g => (
+              <button 
+                key={g}
+                onClick={() => setSelectedGroup(g!)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${selectedGroup === g ? 'bg-accent/20 text-accent border border-accent/30' : 'glass text-white/40 border border-white/5'}`}
+              >
+                Grupo {g}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="pt-2">
           {activeTab === 'tabela' && (
-            <div className="glass rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl">
-              <div className="overflow-x-auto no-scrollbar">
-                <div className="min-w-[400px]">
-                  <div className="grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 bg-white/5 text-[8px] font-black text-white/40 uppercase tracking-widest text-center items-center">
-                    <span className="text-left pl-1">#</span>
-                    <span className="text-left">EQUIPA</span>
-                    <span className="text-white font-bold">PTS</span>
-                    <span>J</span>
-                    <span>V</span>
-                    <span>E</span>
-                    <span>D</span>
-                    <span>GM</span>
-                    <span>GS</span>
-                    <span>SG</span>
-                  </div>
-                  <div className="divide-y divide-white/5">
-                    {standings.map((team, idx) => {
-                      const isLeader = idx === 0;
-                      const isLast = idx === standings.length - 1 && standings.length > 1;
-                      return (
-                        <div 
-                          key={team.id} 
-                          className={`grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 items-center text-center group hover:bg-white/5 transition-colors cursor-pointer ${isLeader ? 'bg-green-500/5' : isLast ? 'bg-red-500/5' : ''}`}
-                          onClick={() => setSelectedTeam(team)}
-                        >
-                          <span className={`font-black italic text-xs ${isLeader ? 'text-green-500' : isLast ? 'text-red-500' : idx < 4 ? 'text-accent' : 'text-white/40'}`}>
-                            {idx + 1}
-                          </span>
-                          <div className="flex items-center gap-2 text-left min-w-0">
-                            <img src={team.logo || `https://picsum.photos/seed/${team.nome}/40/40`} className="w-5 h-5 rounded-md object-contain shrink-0" referrerPolicy="no-referrer" />
-                            <span className="font-bold text-[11px] truncate">{team.nome}</span>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <span className="text-xs font-black italic text-accent">{team.points}</span>
-                            {team.ajustePontos !== 0 && (
-                              <span className={`text-[8px] font-bold ${team.ajustePontos > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {team.ajustePontos > 0 ? `+${team.ajustePontos}` : team.ajustePontos}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] font-medium text-white/60">{team.played}</span>
-                          <span className="text-[10px] font-medium text-white/60">{team.won}</span>
-                          <span className="text-[10px] font-medium text-white/60">{team.drawn}</span>
-                          <span className="text-[10px] font-medium text-white/60">{team.lost}</span>
-                          <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-medium text-white/60">{team.goalsFor}</span>
-                            {team.ajusteGM !== 0 && (
-                              <span className="text-[7px] font-bold text-green-500/60 leading-none">+{team.ajusteGM}</span>
-                            )}
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-medium text-white/60">{team.goalsAgainst}</span>
-                            {team.ajusteGS !== 0 && (
-                              <span className="text-[7px] font-bold text-red-500/60 leading-none">+{team.ajusteGS}</span>
-                            )}
-                          </div>
-                          <span className={`text-[10px] font-bold ${team.goalDifference > 0 ? 'text-green-500' : team.goalDifference < 0 ? 'text-red-500' : 'text-white/40'}`}>
-                            {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {standings.length === 0 && (
-                      <p className="text-center py-10 text-white/20 text-xs font-bold font-black uppercase italic">Nenhuma equipa registada</p>
+            <div className="space-y-8">
+              {(selectedGroup === 'todos' ? Array.from(new Set(teams.filter(t => t.ligaId === selectedLeague.id).map(t => t.grupo || 'Sem Grupo'))).sort() : [selectedGroup]).map(groupName => {
+                const groupStandings = calculateStandings(selectedLeague.id, groupName === 'Sem Grupo' ? null : groupName);
+                if (groupStandings.length === 0 && selectedGroup !== 'todos') return null;
+                if (groupStandings.length === 0 && selectedGroup === 'todos') return null;
+
+                return (
+                  <div key={groupName} className="space-y-4">
+                    {selectedLeague.modoCompeticao === 'grupos' && (
+                      <div className="flex items-center gap-3 px-2">
+                        <Trophy size={14} className="text-accent" />
+                        <h3 className="text-xs font-black uppercase text-accent tracking-[0.2em] italic">🏆 GRUPO {groupName}</h3>
+                      </div>
                     )}
+                    
+                    <div className="glass rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl">
+                      <div className="overflow-x-auto no-scrollbar">
+                        <div className="min-w-[400px]">
+                          <div className="grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 bg-white/5 text-[8px] font-black text-white/40 uppercase tracking-widest text-center items-center">
+                            <span className="text-left pl-1">#</span>
+                            <span className="text-left">EQUIPA</span>
+                            <span className="text-white font-bold">PTS</span>
+                            <span>J</span>
+                            <span>V</span>
+                            <span>E</span>
+                            <span>D</span>
+                            <span>GM</span>
+                            <span>GS</span>
+                            <span>SG</span>
+                          </div>
+                          <div className="divide-y divide-white/5">
+                            {groupStandings.map((team, idx) => {
+                              const isLeader = idx === 0;
+                              const isLast = idx === groupStandings.length - 1 && groupStandings.length > 1;
+                              return (
+                                <div 
+                                  key={team.id} 
+                                  className={`grid grid-cols-[2.5rem_1fr_2rem_1.5rem_1.5rem_1.5rem_1.5rem_1.5rem_2rem_2rem] gap-1 p-4 items-center text-center group hover:bg-white/5 transition-colors cursor-pointer ${isLeader ? 'bg-green-500/5' : isLast ? 'bg-red-500/5' : ''}`}
+                                  onClick={() => setSelectedTeam(team)}
+                                >
+                                  <span className={`font-black italic text-xs ${isLeader ? 'text-green-500' : isLast ? 'text-red-500' : idx < 4 ? 'text-accent' : 'text-white/40'}`}>
+                                    {idx + 1}
+                                  </span>
+                                  <div className="flex items-center gap-2 text-left min-w-0">
+                                    <img src={team.logo || `https://picsum.photos/seed/${team.nome}/40/40`} className="w-5 h-5 rounded-md object-contain shrink-0" referrerPolicy="no-referrer" />
+                                    <span className="font-bold text-[11px] truncate">{team.nome}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-xs font-black italic text-accent">{team.points}</span>
+                                    {team.ajustePontos !== 0 && (
+                                      <span className={`text-[8px] font-bold ${team.ajustePontos > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                        {team.ajustePontos > 0 ? `+${team.ajustePontos}` : team.ajustePontos}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] font-medium text-white/60">{team.played}</span>
+                                  <span className="text-[10px] font-medium text-white/60">{team.won}</span>
+                                  <span className="text-[10px] font-medium text-white/60">{team.drawn}</span>
+                                  <span className="text-[10px] font-medium text-white/60">{team.lost}</span>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[10px] font-medium text-white/60">{team.goalsFor}</span>
+                                    {team.ajusteGM !== 0 && (
+                                      <span className="text-[7px] font-bold text-green-500/60 leading-none">+{team.ajusteGM}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[10px] font-medium text-white/60">{team.goalsAgainst}</span>
+                                    {team.ajusteGS !== 0 && (
+                                      <span className="text-[7px] font-bold text-red-500/60 leading-none">+{team.ajusteGS}</span>
+                                    )}
+                                  </div>
+                                  <span className={`text-[10px] font-bold ${team.goalDifference > 0 ? 'text-green-500' : team.goalDifference < 0 ? 'text-red-500' : 'text-white/40'}`}>
+                                    {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {groupStandings.length === 0 && (
+                              <p className="text-center py-10 text-white/20 text-xs font-bold font-black uppercase italic">Nenhuma equipa registada neste grupo</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white/5 flex justify-center border-t border-white/5">
+                        <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Clica numa equipa para ver o plantel</p>
+                      </div>
+                    </div>
                   </div>
+                );
+              })}
+              {selectedLeague.modoCompeticao === 'liga' && standings.length === 0 && (
+                <div className="glass p-12 text-center rounded-[2.5rem]">
+                  <Trophy size={40} className="mx-auto text-white/5 mb-4" />
+                  <p className="text-xs font-black uppercase text-white/20">Nenhuma equipa inscrita nesta liga</p>
                 </div>
-              </div>
-              <div className="p-3 bg-white/5 flex justify-center border-t border-white/5">
-                <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Clica numa equipa para ver o plantel</p>
-              </div>
+              )}
             </div>
           )}
 
@@ -1484,6 +1599,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
                 Object.entries(
                   leagueMatches
                     .filter(m => selectedJornada === 'todas' || (m.jornada || 1) === selectedJornada)
+                    .filter(m => selectedGroup === 'todos' || m.grupo === selectedGroup)
                     .reduce((acc, match) => {
                       const j = match.jornada || 1;
                       if (!acc[j]) acc[j] = [];
@@ -1502,21 +1618,23 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
 
                     {Object.entries(
                       jornadaMatches.reduce((acc, m) => {
-                        const d = m.data || 'Sem Data';
-                        if (!acc[d]) acc[d] = [];
-                        acc[d].push(m);
+                        const subgroupKey = selectedLeague.modoCompeticao === 'grupos' ? `Grupo ${m.grupo || '?'}` : (m.data || 'Sem Data');
+                        if (!acc[subgroupKey]) acc[subgroupKey] = [];
+                        acc[subgroupKey].push(m);
                         return acc;
                       }, {} as Record<string, Match[]>)
-                    ).map(([date, dateMatches]) => (
-                      <div key={date} className="space-y-4">
-                        {/* Date Label */}
+                    ).map(([subgroup, subMatches]) => (
+                      <div key={subgroup} className="space-y-4">
+                        {/* Subgroup Label (Date or Group) */}
                         <div className="flex items-center gap-2 pl-4">
-                          <Calendar size={12} className="text-accent" />
-                          <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">{formatDateLabel(date)}</span>
+                          {subgroup.startsWith('Grupo') ? <Trophy size={12} className="text-accent" /> : <Calendar size={12} className="text-accent" />}
+                          <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">
+                            {subgroup.startsWith('Grupo') ? subgroup : formatDateLabel(subgroup)}
+                          </span>
                         </div>
 
                         <div className="space-y-4">
-                          {dateMatches.map(match => {
+                          {subMatches.map(match => {
                             const status = match.status?.toLowerCase() || 'finalizado';
                             const isLive = status === 'ao_vivo' || status === 'ao vivo';
                             const isScheduled = status === 'agendado';
@@ -1596,7 +1714,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
 
           {activeTab === 'equipas' && (
             <div className="grid grid-cols-2 gap-4">
-              {leagueTeams.map(team => (
+              {currentLeagueTeams.map(team => (
                 <button 
                   key={team.id}
                   onClick={() => setSelectedTeam(team)}
@@ -1611,7 +1729,7 @@ const CompeticoesScreen = ({ leagues, teams, players, matches, onBack }: {
                   </div>
                 </button>
               ))}
-              {leagueTeams.length === 0 && (
+              {currentLeagueTeams.length === 0 && (
                 <div className="col-span-2 text-center py-20 text-white/20 glass rounded-[2.5rem] border border-white/5">
                   <Users size={40} className="mx-auto opacity-10 mb-3" />
                   <p className="text-xs font-bold uppercase tracking-widest">Nenhuma equipa</p>
@@ -1930,6 +2048,7 @@ const MercadoScreen = ({ products, onAddProduct, user, onBack }: { products: Pro
                     onChange={(e) => setNewAd({...newAd, title: e.target.value})}
                     placeholder="Ex: Chuteiras Nike Mercurial"
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-accent transition-colors"
+                    autoFocus={false}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1942,6 +2061,7 @@ const MercadoScreen = ({ products, onAddProduct, user, onBack }: { products: Pro
                       onChange={(e) => setNewAd({...newAd, price: e.target.value})}
                       placeholder="Ex: 25.000 Kz"
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-accent transition-colors"
+                      autoFocus={false}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1953,6 +2073,7 @@ const MercadoScreen = ({ products, onAddProduct, user, onBack }: { products: Pro
                       onChange={(e) => setNewAd({...newAd, whatsapp: e.target.value})}
                       placeholder="Ex: 2449..."
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-accent transition-colors"
+                      autoFocus={false}
                     />
                   </div>
                 </div>
@@ -2787,12 +2908,44 @@ const ConviteScreen = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+// --- Admin Modal Component (Standalone) ---
+const AdminModal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-[#0A0F1C] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-black italic uppercase text-accent tracking-tighter">{title}</h3>
+          <button onClick={onClose} className="p-2 bg-white/5 rounded-xl hover:text-accent transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </motion.div>
+    </div>
+  );
+};
+
 const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser: UserProfile | null }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [activeTab, setActiveTab] = useState<'posts' | 'users' | 'copas'>('posts');
   const [activeCopasTab, setActiveCopasTab] = useState<'ligas' | 'equipas' | 'jogadores' | 'jogos'>('ligas');
   const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -2804,11 +2957,18 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const [teams, setTeams] = useState<Team[]>([]);
   const [leaguePlayers, setLeaguePlayers] = useState<LeaguePlayer[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [participations, setParticipations] = useState<Participation[]>([]);
   
   // Forms
   const [showAddLeague, setShowAddLeague] = useState(false);
   const [editingLeague, setEditingLeague] = useState<League | null>(null);
-  const [newLeague, setNewLeague] = useState({ nome: '', regiao: '', logo: '', temporada: '' });
+  const [newLeague, setNewLeague] = useState({ 
+    nome: '', 
+    regiao: '', 
+    logo: '', 
+    temporada: '',
+    modoCompeticao: 'liga' as 'liga' | 'grupos'
+  });
   
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -2818,10 +2978,14 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     logo: '', 
     cidade: '', 
     descricao: '',
+    grupo: '' as string,
     ajustePontos: 0,
     ajusteGM: 0,
     ajusteGS: 0
   });
+
+  const [showAssignTeam, setShowAssignTeam] = useState(false);
+  const [assignTeamData, setAssignTeamData] = useState({ equipaId: '', competicaoId: '', grupo: '' });
 
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<LeaguePlayer | null>(null);
@@ -2832,7 +2996,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const [newMatch, setNewMatch] = useState({ 
     equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
     golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado' as any,
-    ligaId: '', liga: '', jornada: 1,
+    ligaId: '', liga: '', jornada: 1, grupo: '',
     data: '', hora: '', local: ''
   });
 
@@ -2869,6 +3033,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       setMatches(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'matches'));
 
+    const qParticipations = query(collection(db, 'participations'));
+    const unsubscribeParticipations = onSnapshot(qParticipations, (snapshot) => {
+      setParticipations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Participation)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'participations'));
+
     return () => {
       unsubscribePosts();
       unsubscribeUsers();
@@ -2876,6 +3045,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       unsubscribeTeams();
       unsubscribeLeaguePlayers();
       unsubscribeMatches();
+      unsubscribeParticipations();
     };
   }, []);
 
@@ -2896,8 +3066,18 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   const filteredTeams = teams
     .filter(t => {
       const matchesSearch = t.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesLeague = !filterLeagueId || t.ligaId === filterLeagueId;
-      return matchesSearch && matchesLeague;
+      
+      // HÍBRIDO: Se existir filtro por liga, ver participações
+      if (filterLeagueId) {
+        const teamPartics = participations.filter(p => p.competicaoId === filterLeagueId);
+        if (teamPartics.length > 0) {
+          return matchesSearch && teamPartics.some(p => p.equipaId === t.id);
+        }
+        // Fallback antigo
+        return matchesSearch && t.ligaId === filterLeagueId;
+      }
+      
+      return matchesSearch;
     })
     .sort((a, b) => a.nome.localeCompare(b.nome));
 
@@ -2921,29 +3101,6 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     })
     .sort((a, b) => (a.jornada || 0) - (b.jornada || 0) || (a.timestamp || 0) - (b.timestamp || 0));
 
-  const AdminModal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
-    if (!isOpen) return null;
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-[#0A0F1C] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-black italic uppercase text-accent tracking-tighter">{title}</h3>
-            <button onClick={onClose} className="p-2 bg-white/5 rounded-xl hover:text-accent transition-colors">
-              <X size={20} />
-            </button>
-          </div>
-          {children}
-        </motion.div>
-      </div>
-    );
-  };
-
   const handleCreateLeague = async () => {
     if (!newLeague.nome || !newLeague.regiao || !currentUser) return;
     try {
@@ -2952,7 +3109,8 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
           nome: newLeague.nome,
           regiao: newLeague.regiao,
           logo: newLeague.logo,
-          temporada: newLeague.temporada
+          temporada: newLeague.temporada,
+          modoCompeticao: newLeague.modoCompeticao
         });
       } else {
         await addDoc(collection(db, 'leagues'), {
@@ -2960,10 +3118,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
           regiao: newLeague.regiao,
           logo: newLeague.logo || `https://picsum.photos/seed/${newLeague.nome}/200/200`,
           temporada: newLeague.temporada || '2024',
+          modoCompeticao: newLeague.modoCompeticao || 'liga',
           createdBy: currentUser.uid
         });
       }
-      setNewLeague({ nome: '', regiao: '', logo: '', temporada: '' });
+      setNewLeague({ nome: '', regiao: '', logo: '', temporada: '', modoCompeticao: 'liga' });
       setShowAddLeague(false);
       setEditingLeague(null);
     } catch (error) {
@@ -2971,13 +3130,86 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     }
   };
 
-  const handleDeleteLeague = async (id: string) => {
-    if (!confirm('Podes apagar esta liga? Todas as equipas e jogos associados ficarão órfãos.')) return;
-    try {
-      await deleteDoc(doc(db, 'leagues', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `leagues/${id}`);
+  const handleDeleteItem = async ({ colecao, id, nome, checkAssociations }: { colecao: string; id: string; nome?: string; checkAssociations?: () => string | null }) => {
+    const associationError = checkAssociations ? checkAssociations() : null;
+    if (associationError) {
+      setToast({ message: associationError, type: 'error' });
+      return;
     }
+
+    const confirmar = confirm(`Tem certeza que deseja apagar ${nome || "este item"}?`);
+    if (!confirmar) return;
+
+    try {
+      await deleteDoc(doc(db, colecao, id));
+      setToast({ message: "Apagado com sucesso ✅", type: 'success' });
+    } catch (error) {
+      console.error(error);
+      setToast({ message: "Erro ao apagar ❌", type: 'error' });
+      handleFirestoreError(error, OperationType.DELETE, `${colecao}/${id}`);
+    }
+  };
+
+  const handleDeleteLeague = async (id: string) => {
+    const league = leagues.find(l => l.id === id);
+    handleDeleteItem({
+      colecao: 'leagues',
+      id,
+      nome: league?.nome,
+      checkAssociations: () => {
+        const hasTeams = teams.some(t => t.ligaId === id);
+        const hasMatches = matches.some(m => m.ligaId === id);
+        const hasParticipations = participations.some(p => p.competicaoId === id);
+        if (hasTeams || hasMatches || hasParticipations) {
+          return "Esta liga possui equipas ou jogos associados. Remova-os primeiro.";
+        }
+        return null;
+      }
+    });
+  };
+
+  const handleDeleteTeam = async (id: string) => {
+    const team = teams.find(t => t.id === id);
+    handleDeleteItem({
+      colecao: 'teams',
+      id,
+      nome: team?.nome,
+      checkAssociations: () => {
+        const hasPlayers = leaguePlayers.some(p => p.equipaId === id);
+        const hasMatches = matches.some(m => m.equipaAId === id || m.equipaBId === id);
+        const hasParticipations = participations.some(p => p.equipaId === id);
+        if (hasPlayers || hasMatches || hasParticipations) {
+          return "Esta equipa possui jogadores, participações ou jogos associados. Remova-os primeiro.";
+        }
+        return null;
+      }
+    });
+  };
+
+  const handleDeletePlayer = async (id: string) => {
+    const player = leaguePlayers.find(p => p.id === id);
+    handleDeleteItem({
+      colecao: 'league_players',
+      id,
+      nome: player?.nome
+    });
+  };
+
+  const handleDeleteMatch = async (id: string) => {
+    handleDeleteItem({
+      colecao: 'matches',
+      id,
+      nome: "este jogo"
+    });
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    handleDeleteItem({
+      colecao: 'posts',
+      id: postId,
+      nome: post?.nome || "este post"
+    });
   };
 
   const handleCreateTeam = async () => {
@@ -2989,6 +3221,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         logo: newTeam.logo || `https://picsum.photos/seed/${newTeam.nome}/200/200`,
         cidade: newTeam.cidade || 'Luanda',
         descricao: newTeam.descricao || '',
+        grupo: newTeam.grupo?.toUpperCase() || null,
         ajustePontos: Number(newTeam.ajustePontos) || 0,
         ajusteGM: Number(newTeam.ajusteGM) || 0,
         ajusteGS: Number(newTeam.ajusteGS) || 0,
@@ -3006,6 +3239,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         logo: '', 
         cidade: '', 
         descricao: '',
+        grupo: '',
         ajustePontos: 0,
         ajusteGM: 0,
         ajusteGS: 0
@@ -3014,15 +3248,6 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       setEditingTeam(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'teams');
-    }
-  };
-
-  const handleDeleteTeam = async (id: string) => {
-    if (!confirm('Deseja remover esta equipa?')) return;
-    try {
-      await deleteDoc(doc(db, 'teams', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `teams/${id}`);
     }
   };
 
@@ -3052,19 +3277,9 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     }
   };
 
-  const handleDeletePlayer = async (id: string) => {
-    if (!confirm('Remover jogador?')) return;
-    try {
-      await deleteDoc(doc(db, 'league_players', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `league_players/${id}`);
-    }
-  };
-
   const handleCreateMatch = async () => {
     if (!newMatch.equipaAId || !newMatch.equipaBId || !newMatch.ligaId) return;
     
-    // Validações Anti-Erro (GingaFutsal Evolution)
     if (newMatch.equipaAId === newMatch.equipaBId) {
       alert("As equipas não podem ser iguais.");
       return;
@@ -3099,6 +3314,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         jornada: newMatch.jornada || 1,
         ligaId: l.id,
         liga: l.nome,
+        grupo: newMatch.grupo?.toUpperCase() || null,
         data: newMatch.data || (editingMatch ? editingMatch.data : ''),
         hora: newMatch.hora || '',
         local: newMatch.local || '',
@@ -3113,7 +3329,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       setNewMatch({ 
         equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
         golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado',
-        ligaId: '', liga: '', jornada: 1,
+        ligaId: '', liga: '', jornada: 1, grupo: '',
         data: '', hora: '', local: ''
       });
       setShowAddMatch(false);
@@ -3123,29 +3339,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     }
   };
 
-  const handleDeleteMatch = async (id: string) => {
-    if (!confirm('Apagar este jogo?')) return;
-    try {
-      await deleteDoc(doc(db, 'matches', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `matches/${id}`);
-    }
-  };
-
   const handleQuickMatchUpdate = async (id: string, updates: Partial<Match>) => {
     try {
       await updateDoc(doc(db, 'matches', id), updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `matches/${id}`);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm('Tem certeza que deseja remover este post?')) return;
-    try {
-      await deleteDoc(doc(db, 'posts', postId));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `posts/${postId}`);
     }
   };
 
@@ -3166,6 +3364,49 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  const handleAssignTeam = async () => {
+    if (!assignTeamData.equipaId || !assignTeamData.competicaoId) return;
+    
+    // Prevenção de duplicados
+    const alreadyExists = participations.some(p => 
+      p.equipaId === assignTeamData.equipaId && 
+      p.competicaoId === assignTeamData.competicaoId
+    );
+    
+    if (alreadyExists) {
+      alert("Esta equipa já participa nesta competição.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'participations'), {
+        equipaId: assignTeamData.equipaId,
+        competicaoId: assignTeamData.competicaoId,
+        grupo: assignTeamData.grupo?.toUpperCase() || null,
+        criadoEm: Date.now()
+      });
+      setShowAssignTeam(false);
+      setAssignTeamData({ equipaId: '', competicaoId: '', grupo: '' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participations');
+    }
+  };
+
+  const handleRemoveParticipation = async (participationId: string) => {
+    const participation = participations.find(p => p.id === participationId);
+    const team = teams.find(t => t.id === participation?.equipaId);
+    
+    if (!confirm(`Deseja remover a equipa "${team?.nome || 'esta equipa'}" da competição? (A equipa não será apagada)`)) return;
+    
+    try {
+      await deleteDoc(doc(db, 'participations', participationId));
+      setToast({ message: "Removida da competição com sucesso ✅", type: 'success' });
+    } catch (error) {
+      setToast({ message: "Erro ao remover ❌", type: 'error' });
+      handleFirestoreError(error, OperationType.DELETE, `participations/${participationId}`);
     }
   };
 
@@ -3229,6 +3470,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
             className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-accent/40 outline-none transition-all placeholder:text-white/20"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
+            autoFocus={false}
           />
         </div>
 
@@ -3393,6 +3635,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           type="text" placeholder="Ex: Girabola Futsal" 
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                           value={newLeague.nome} onChange={e => setNewLeague({...newLeague, nome: e.target.value})}
+                          autoFocus={false}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -3402,6 +3645,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                              type="text" placeholder="Luanda" 
                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                              value={newLeague.regiao} onChange={e => setNewLeague({...newLeague, regiao: e.target.value})}
+                             autoFocus={false}
                           />
                         </div>
                         <div className="space-y-2">
@@ -3410,8 +3654,19 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                             type="text" placeholder="2024" 
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                             value={newLeague.temporada} onChange={e => setNewLeague({...newLeague, temporada: e.target.value})}
+                            autoFocus={false}
                           />
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Modo de Competição</label>
+                        <select 
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none"
+                          value={newLeague.modoCompeticao} onChange={e => setNewLeague({...newLeague, modoCompeticao: e.target.value as any})}
+                        >
+                          <option value="liga">📊 LIGA (TABELA ÚNICA)</option>
+                          <option value="grupos">🏆 GRUPOS (A, B, C...)</option>
+                        </select>
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold text-white/40 uppercase ml-1">URL do Logo</label>
@@ -3441,7 +3696,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => { setEditingLeague(l); setNewLeague({ nome: l.nome, regiao: l.regiao, logo: l.logo || '', temporada: l.temporada || '' }); setShowAddLeague(true); }}
+                            onClick={() => { setEditingLeague(l); setNewLeague({ nome: l.nome, regiao: l.regiao, logo: l.logo || '', temporada: l.temporada || '', modoCompeticao: l.modoCompeticao || 'liga' }); setShowAddLeague(true); }}
                             className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
                           >
                             <Edit size={16} />
@@ -3477,6 +3732,43 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                     </button>
                   </div>
 
+                  {filterLeagueId && (
+                    <div className="glass p-6 rounded-3xl border border-accent/20 space-y-4">
+                      <p className="text-[10px] font-black text-accent uppercase tracking-widest">Inscrição em {leagues.find(l => l.id === filterLeagueId)?.nome}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <select 
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none"
+                          value={assignTeamData.equipaId}
+                          onChange={e => setAssignTeamData({...assignTeamData, equipaId: e.target.value})}
+                        >
+                          <option value="">Selecionar Equipa</option>
+                          {teams
+                            .filter(t => !participations.some(p => p.equipaId === t.id && p.competicaoId === filterLeagueId))
+                            .map(t => <option key={t.id} value={t.id}>{t.nome}</option>)
+                          }
+                        </select>
+                        <input 
+                          type="text" 
+                          placeholder="Grupo (opcional)"
+                          className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-accent outline-none uppercase"
+                          value={assignTeamData.grupo}
+                          onChange={e => setAssignTeamData({...assignTeamData, grupo: e.target.value})}
+                        />
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const data = { ...assignTeamData, competicaoId: filterLeagueId };
+                          setAssignTeamData(data);
+                          handleAssignTeam();
+                        }}
+                        className="w-full bg-accent/10 border border-accent/20 text-accent font-bold py-3 rounded-xl text-[10px] uppercase hover:bg-accent hover:text-white transition-all disabled:opacity-50"
+                        disabled={!assignTeamData.equipaId}
+                      >
+                        Adicionar à Competição
+                      </button>
+                    </div>
+                  )}
+
                   <AdminModal 
                     isOpen={showAddTeam} 
                     onClose={() => { setShowAddTeam(false); setEditingTeam(null); }}
@@ -3489,6 +3781,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           type="text" placeholder="Ex: G & SM" 
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                           value={newTeam.nome} onChange={e => setNewTeam({...newTeam, nome: e.target.value})}
+                          autoFocus={false}
                         />
                       </div>
                       <div className="space-y-2">
@@ -3518,6 +3811,16 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                             value={newTeam.logo} onChange={e => setNewTeam({...newTeam, logo: e.target.value})}
                           />
                         </div>
+                        {newTeam.ligaId && leagues.find(l => l.id === newTeam.ligaId)?.modoCompeticao === 'grupos' && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Grupo (A, B...)</label>
+                            <input 
+                              type="text" placeholder="Ex: A" 
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none uppercase"
+                              value={newTeam.grupo} onChange={e => setNewTeam({...newTeam, grupo: e.target.value})}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2 space-y-3">
@@ -3525,15 +3828,15 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                          <div className="grid grid-cols-3 gap-2">
                            <div className="space-y-1">
                              <label className="text-[8px] font-bold text-white/30 uppercase ml-1">Pts Extra</label>
-                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajustePontos} onChange={e => setNewTeam({...newTeam, ajustePontos: parseInt(e.target.value) || 0})} />
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajustePontos} onChange={e => setNewTeam({...newTeam, ajustePontos: parseInt(e.target.value) || 0})} autoFocus={false} />
                            </div>
                            <div className="space-y-1">
                              <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GM Extra</label>
-                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGM} onChange={e => setNewTeam({...newTeam, ajusteGM: parseInt(e.target.value) || 0})} />
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGM} onChange={e => setNewTeam({...newTeam, ajusteGM: parseInt(e.target.value) || 0})} autoFocus={false} />
                            </div>
                            <div className="space-y-1">
                              <label className="text-[8px] font-bold text-white/30 uppercase ml-1">GS Extra</label>
-                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGS} onChange={e => setNewTeam({...newTeam, ajusteGS: parseInt(e.target.value) || 0})} />
+                             <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-accent outline-none" value={newTeam.ajusteGS} onChange={e => setNewTeam({...newTeam, ajusteGS: parseInt(e.target.value) || 0})} autoFocus={false} />
                            </div>
                          </div>
                       </div>
@@ -3545,37 +3848,54 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                   </AdminModal>
 
                   <div className="space-y-3">
-                    {filteredTeams.map(t => (
-                      <div key={t.id} className="glass p-5 rounded-[2rem] border border-white/5 flex items-center justify-between gap-4 group hover:border-accent/20 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center p-2">
-                            <img src={t.logo} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                          </div>
-                          <div>
-                            <p className="font-black italic text-sm text-white group-hover:text-accent transition-colors">{t.nome}</p>
-                            <div className="flex items-center gap-2">
-                               <Trophy size={10} className="text-white/20" />
-                               <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{leagues.find(l => l.id === t.ligaId)?.nome || 'Sem Liga'}</p>
+                    {filteredTeams.map(t => {
+                      const participation = filterLeagueId ? participations.find(p => p.equipaId === t.id && p.competicaoId === filterLeagueId) : null;
+                      const league = leagues.find(l => l.id === (participation?.competicaoId || t.ligaId));
+                      
+                      return (
+                        <div key={t.id} className="glass p-5 rounded-[2rem] border border-white/5 flex items-center justify-between gap-4 group hover:border-accent/20 transition-all">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center p-2">
+                              <img src={t.logo} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                            </div>
+                            <div>
+                              <p className="font-black italic text-sm text-white group-hover:text-accent transition-colors">{t.nome}</p>
+                              <div className="flex items-center gap-2">
+                                <Trophy size={10} className="text-white/20" />
+                                <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">
+                                  {league?.nome || 'Sem Liga'} {participation?.grupo ? `(${participation.grupo})` : t.grupo ? `(${t.grupo})` : ''}
+                                </p>
+                              </div>
                             </div>
                           </div>
+                          <div className="flex gap-2">
+                            {participation && (
+                              <button 
+                                onClick={() => handleRemoveParticipation(participation.id)}
+                                className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all flex items-center gap-2"
+                                title="Remover da Competição"
+                              >
+                                <X size={16} />
+                                <span className="text-[8px] font-black uppercase hidden md:inline">Remover</span>
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => { 
+                                setEditingTeam(t); 
+                                setNewTeam({ nome: t.nome, ligaId: t.ligaId, logo: t.logo || '', cidade: t.cidade || '', descricao: t.descricao || '', grupo: t.grupo || '', ajustePontos: t.ajustePontos || 0, ajusteGM: t.ajusteGM || 0, ajusteGS: t.ajusteGS || 0 }); 
+                                setShowAddTeam(true); 
+                              }}
+                              className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button onClick={() => handleDeleteTeam(t.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => { 
-                              setEditingTeam(t); 
-                              setNewTeam({ nome: t.nome, ligaId: t.ligaId, logo: t.logo || '', cidade: t.cidade || '', descricao: t.descricao || '', ajustePontos: t.ajustePontos || 0, ajusteGM: t.ajusteGM || 0, ajusteGS: t.ajusteGS || 0 }); 
-                              setShowAddTeam(true); 
-                            }}
-                            className="p-3 bg-white/5 text-white/40 rounded-xl hover:text-accent hover:bg-accent/5 transition-all"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button onClick={() => handleDeleteTeam(t.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -3609,6 +3929,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           type="text" placeholder="Ex: Edson da Silva" 
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none"
                           value={newPlayer.nome} onChange={e => setNewPlayer({...newPlayer, nome: e.target.value})}
+                          autoFocus={false}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -3647,11 +3968,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.golos} onChange={e => setNewPlayer({...newPlayer, golos: parseInt(e.target.value) || 0})} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.golos} onChange={e => setNewPlayer({...newPlayer, golos: parseInt(e.target.value) || 0})} autoFocus={false} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Assistências</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.assistencias} onChange={e => setNewPlayer({...newPlayer, assistencias: parseInt(e.target.value) || 0})} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newPlayer.assistencias} onChange={e => setNewPlayer({...newPlayer, assistencias: parseInt(e.target.value) || 0})} autoFocus={false} />
                         </div>
                       </div>
 
@@ -3753,37 +4074,48 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos A</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosA} onChange={e => setNewMatch({...newMatch, golosA: parseInt(e.target.value) || 0})} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosA} onChange={e => setNewMatch({...newMatch, golosA: parseInt(e.target.value) || 0})} autoFocus={false} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Golos B</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosB} onChange={e => setNewMatch({...newMatch, golosB: parseInt(e.target.value) || 0})} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-black italic" value={newMatch.golosB} onChange={e => setNewMatch({...newMatch, golosB: parseInt(e.target.value) || 0})} autoFocus={false} />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Jornada</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newMatch.jornada} onChange={e => setNewMatch({...newMatch, jornada: parseInt(e.target.value) || 1})} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none" value={newMatch.jornada} onChange={e => setNewMatch({...newMatch, jornada: parseInt(e.target.value) || 1})} autoFocus={false} />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Status</label>
-                          <select className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none" value={newMatch.status} onChange={e => setNewMatch({...newMatch, status: e.target.value as any})}>
-                            <option value="agendado">🟡 AGENDADO</option>
-                            <option value="ao_vivo">🔴 AO VIVO</option>
-                            <option value="finalizado">⚫ FINALIZADO</option>
-                          </select>
-                        </div>
+                        {newMatch.ligaId && leagues.find(l => l.id === newMatch.ligaId)?.modoCompeticao === 'grupos' && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Grupo (A, B...)</label>
+                            <input 
+                              type="text" placeholder="Ex: A" 
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none uppercase" 
+                              value={newMatch.grupo} onChange={e => setNewMatch({...newMatch, grupo: e.target.value})}
+                              autoFocus={false}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Status</label>
+                        <select className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-accent outline-none" value={newMatch.status} onChange={e => setNewMatch({...newMatch, status: e.target.value as any})}>
+                          <option value="agendado">🟡 AGENDADO</option>
+                          <option value="ao_vivo">🔴 AO VIVO</option>
+                          <option value="finalizado">⚫ FINALIZADO</option>
+                        </select>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Data</label>
-                          <input type="date" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.data} onChange={e => setNewMatch({...newMatch, data: e.target.value})} />
+                          <input type="date" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.data} onChange={e => setNewMatch({...newMatch, data: e.target.value})} autoFocus={false} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Hora</label>
-                          <input type="time" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.hora} onChange={e => setNewMatch({...newMatch, hora: e.target.value})} />
+                          <input type="time" className="w-full bg-[#0A0F1C] border border-white/10 rounded-xl px-4 py-4 text-xs text-white focus:border-accent outline-none" value={newMatch.hora} onChange={e => setNewMatch({...newMatch, hora: e.target.value})} autoFocus={false} />
                         </div>
                       </div>
 
@@ -3828,7 +4160,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                                         {status.replace('_', ' ')}
                                       </div>
                                       <div className="flex gap-2">
-                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 bg-white/5 rounded-lg hover:text-accent transition-colors">
+                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, grupo: m.grupo || '', data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 bg-white/5 rounded-lg hover:text-accent transition-colors">
                                           <Edit size={14} />
                                         </button>
                                         <button onClick={() => handleDeleteMatch(m.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
@@ -3882,6 +4214,13 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Toast Feedback */}
+      {toast && (
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl shadow-2xl border flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300 ${toast.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+          <span className="text-xs font-black uppercase tracking-widest">{toast.message}</span>
         </div>
       )}
     </div>
@@ -4145,19 +4484,24 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Track Firestore connection status
-    const unsubscribeConnection = onSnapshot(doc(db, 'test', 'connection'), () => {
-      setIsFirestoreConnected(true);
-    }, (error) => {
-      if (error.code === 'unavailable') {
-        setIsFirestoreConnected(false);
+    // Track Firestore connection status with a single fetch instead of a continuous stream to save resources
+    const checkConnection = async () => {
+      try {
+        await getDoc(doc(db, 'test', 'connection'));
+        setIsFirestoreConnected(true);
+      } catch (error: any) {
+        if (error.code === 'unavailable' || error.message?.includes('network')) {
+          setIsFirestoreConnected(false);
+        }
       }
-    });
+    };
+    checkConnection();
+    const connectionInterval = setInterval(checkConnection, 30000); // Check every 30s
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      unsubscribeConnection();
+      clearInterval(connectionInterval);
     };
   }, []);
 const [isGuest, setIsGuest] = useState(false);
@@ -4170,6 +4514,7 @@ const [isGuest, setIsGuest] = useState(false);
   const [games, setGames] = useState<Match[]>(INITIAL_GAMES as any);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [participations, setParticipations] = useState<Participation[]>([]);
   const [leaguePlayers, setLeaguePlayers] = useState<LeaguePlayer[]>([]);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [players] = useState<Player[]>(INITIAL_PLAYERS);
@@ -4492,6 +4837,12 @@ const [isGuest, setIsGuest] = useState(false);
       if (adsData.length > 0) setProducts(adsData);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'ads'));
 
+    const qParticipations = query(collection(db, 'participations'));
+    const unsubscribeParticipations = onSnapshot(qParticipations, (snapshot) => {
+      const participationsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Participation));
+      setParticipations(participationsData);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'participations'));
+
     return () => {
       unsubscribeAuth();
       unsubscribePosts();
@@ -4500,12 +4851,39 @@ const [isGuest, setIsGuest] = useState(false);
       unsubscribeTeams();
       unsubscribeLeaguePlayers();
       unsubscribeAds();
+      unsubscribeParticipations();
       if ((window as any).unsubscribeUser) {
         (window as any).unsubscribeUser();
         (window as any).unsubscribeUser = null;
       }
     };
-  }, []);
+  }, [isAuthReady, showAdminLogin]);
+
+  // --- Migration Logic for Participations ---
+  useEffect(() => {
+    if (teams.length > 0 && isAuthReady) {
+      const migrate = async () => {
+        for (const team of teams) {
+          if (team.ligaId) {
+            const alreadyExists = participations.some(p => p.equipaId === team.id && p.competicaoId === team.ligaId);
+            if (!alreadyExists) {
+              try {
+                await addDoc(collection(db, 'participations'), {
+                  equipaId: team.id,
+                  competicaoId: team.ligaId,
+                  grupo: team.grupo || null,
+                  criadoEm: Date.now()
+                });
+              } catch (error) {
+                console.error("Migration error for team", team.id, error);
+              }
+            }
+          }
+        }
+      };
+      migrate();
+    }
+  }, [teams.length, participations.length, isAuthReady]);
 
   // Real-time Likes for current user
   useEffect(() => {
@@ -4616,7 +4994,7 @@ const [isGuest, setIsGuest] = useState(false);
       case 'inicio': return <InicioScreen setScreen={handleScreenChange} user={user} />;
       case 'pelada': return <PeladaScreen onBack={() => handleScreenChange('inicio')} />;
       case 'live': return <LiveScreen games={games} onBack={() => handleScreenChange('inicio')} />;
-      case 'competicoes': return <CompeticoesScreen leagues={leagues} teams={teams} players={leaguePlayers} matches={games} onBack={() => handleScreenChange('inicio')} />;
+      case 'competicoes': return <CompeticoesScreen leagues={leagues} teams={teams} participations={participations} players={leaguePlayers} matches={games} onBack={() => handleScreenChange('inicio')} />;
       case 'mercado': return <MercadoScreen products={products} onAddProduct={handleAddProduct} user={user} onBack={() => handleScreenChange('inicio')} />;
       case 'perfil': return <PerfilScreen user={user} currentUser={currentUser} onLogout={handleLogout} onUpgrade={handleUpgrade} onAdminClick={handleAdminClick} onAboutClick={() => setActiveScreen('sobre')} onBack={() => handleScreenChange('inicio')} />;
       case 'scout': return <ScoutScreen players={players} onBack={() => handleScreenChange('inicio')} />;
