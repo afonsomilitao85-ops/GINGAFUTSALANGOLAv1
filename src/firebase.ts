@@ -54,21 +54,15 @@ export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence);
 
 // Stabilize Firestore for environments with proxies/restricted networks
-// We use long polling and disable streams to bypass potential gRPC-web issues in iframes
-export const db = initializeFirestore(app as any, {
+export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false,
   useFetchStreams: false,
+  ignoreUndefinedProperties: true,
 } as any, firebaseConfig.firestoreDatabaseId);
 
-// Note: Persistence is disabled for now to prevent stale cache issues 
-// that can happen when switching Firebase projects in a preview environment.
-
-// Initialize Storage - simplified to use default config which is usually more robust
+// Initialize Storage
 export const storage = getStorage(app);
 
-// Configure Storage retry limits to prevent infinite hanging in restricted networks
-// Increased to 10 minutes (600,000ms) to support larger files on slow connections
 try {
   (storage as any).maxUploadRetryTime = 600000;
   (storage as any).maxOperationRetryTime = 600000;
@@ -76,9 +70,6 @@ try {
   console.warn("Could not set storage retry limits:", e);
 }
 
-console.log('Firebase Storage initialized with bucket:', firebaseConfig.storageBucket);
-
-// Auth Providers (Not exported, handled in components for direct SDK reference)
 // Error Handling Helper
 export enum OperationType {
   CREATE = 'create',
@@ -131,34 +122,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection with retries and increased initial delay
+// Delay the connection test even more to give the SDK time to warm up
 async function testConnection(retries = 3) {
   try {
-    // Give more time for the environment to stabilize
-    const delay = retries === 3 ? 10000 : 5000;
+    const delay = retries === 3 ? 20000 : 10000;
     await new Promise(r => setTimeout(r, delay));
     
-    console.log(`Testing Firestore connection... (Attempt ${4 - retries})`);
-    
-    // We try to fetch from a non-existent doc to test connectivity without needing data
-    console.log('Fetching system/ping...');
+    console.log(`Firestore connectivity check (Attempt ${4 - retries})...`);
     await getDocFromServer(doc(db, 'system', 'ping'));
-    console.log('Firestore connection successful (backend reached).');
+    console.log('Firestore: Connection successful.');
   } catch (error: any) {
     if (error && (error.code === 'permission-denied' || error.code === 'not-found')) {
-      console.log('Firestore connection verified (backend reached, expected code):', error.code);
+      console.log('Firestore: Connection verified.');
       return;
     }
 
     if (retries > 0) {
-      console.log(`Retrying Firestore connection... Error: ${error?.message || 'Unknown'}`);
+      console.log(`Firestore: Retrying connection...`);
       return testConnection(retries - 1);
     }
     
-    console.warn("Firestore connection test failed finally:", error);
-    if(error && (error.message?.includes('the client is offline') || error.message?.includes('unavailable') || error.code === 'unavailable')) {
-      console.error("CRITICAL: Firestore is unreachable after multiple attempts. This typically indicates a network/proxy issue or incorrect configuration.");
-    }
+    console.warn("Firestore: Final connection check failed.", error?.message);
   }
 }
 testConnection();

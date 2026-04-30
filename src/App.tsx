@@ -3011,7 +3011,14 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     const unsubscribeUsers = onSnapshot(qUsers, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
       setIsLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+    }, (error) => {
+      if (error.code === 'permission-denied') {
+        console.warn("Permission denied listening to users list (guest mode)");
+        setIsLoading(false);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      }
+    });
 
     const qLeagues = query(collection(db, 'leagues'), orderBy('nome', 'asc'));
     const unsubscribeLeagues = onSnapshot(qLeagues, (snapshot) => {
@@ -3067,13 +3074,16 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     .filter(t => {
       const matchesSearch = t.nome.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // HÍBRIDO: Se existir filtro por liga, ver participações
+      // HÍBRIDO: Se existir filtro por liga, priorizar participações
       if (filterLeagueId) {
-        const teamPartics = participations.filter(p => p.competicaoId === filterLeagueId);
-        if (teamPartics.length > 0) {
-          return matchesSearch && teamPartics.some(p => p.equipaId === t.id);
+        const participationsDaLiga = participations.filter(p => p.competicaoId === filterLeagueId);
+        
+        // Se houver participações registradas, usamos apenas elas
+        if (participationsDaLiga.length > 0) {
+          return matchesSearch && participationsDaLiga.some(p => p.equipaId === t.id);
         }
-        // Fallback antigo
+        
+        // Se não houver nenhuma participação registrada (fallback modelo antigo), usamos ligaId
         return matchesSearch && t.ligaId === filterLeagueId;
       }
       
@@ -3137,12 +3147,9 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
       return;
     }
 
-    const confirmar = confirm(`Tem certeza que deseja apagar ${nome || "este item"}?`);
-    if (!confirmar) return;
-
     try {
       await deleteDoc(doc(db, colecao, id));
-      setToast({ message: "Apagado com sucesso ✅", type: 'success' });
+      setToast({ message: `${nome || "Item"} apagado com sucesso ✅`, type: 'success' });
     } catch (error) {
       console.error(error);
       setToast({ message: "Erro ao apagar ❌", type: 'error' });
@@ -3396,16 +3403,32 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
   };
 
   const handleRemoveParticipation = async (participationId: string) => {
+    console.log("🚀 ID recebido para remoção:", participationId);
+
+    if (!participationId) {
+      console.error("❌ ERRO CRÍTICO: participationId está undefined!");
+      alert("Erro interno: ID de participação não encontrado.");
+      return;
+    }
+
     const participation = participations.find(p => p.id === participationId);
     const team = teams.find(t => t.id === participation?.equipaId);
     
-    if (!confirm(`Deseja remover a equipa "${team?.nome || 'esta equipa'}" da competição? (A equipa não será apagada)`)) return;
-    
     try {
+      console.log("🔥 Apagando no Firestore ID:", participationId);
+      
+      // Atualização Local Imediata (Optimistic UI)
+      setParticipations(prev => prev.filter(p => p.id !== participationId));
+      
       await deleteDoc(doc(db, 'participations', participationId));
-      setToast({ message: "Removida da competição com sucesso ✅", type: 'success' });
+      setToast({ message: `Equipa "${team?.nome || ''}" removida da competição com sucesso ✅`, type: 'success' });
+      
+      console.log("✅ Removido com sucesso. Lista local atualizada.");
     } catch (error) {
+      console.error("❌ Erro ao remover:", error);
       setToast({ message: "Erro ao remover ❌", type: 'error' });
+      
+      // Reverter estado local (o onSnapshot fará isso, mas aqui garantimos consistência)
       handleFirestoreError(error, OperationType.DELETE, `participations/${participationId}`);
     }
   };
@@ -3871,12 +3894,21 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                           <div className="flex gap-2">
                             {participation && (
                               <button 
-                                onClick={() => handleRemoveParticipation(participation.id)}
-                                className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all flex items-center gap-2"
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (participation?.id) {
+                                    handleRemoveParticipation(participation.id);
+                                  } else {
+                                    console.error("Participação não encontrada para esta equipa!", t.id);
+                                  }
+                                }}
+                                className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/10 rounded-xl hover:bg-red-500 hover:text-white transition-all flex items-center gap-1.5 group/remove shadow-lg shadow-red-900/10"
                                 title="Remover da Competição"
                               >
-                                <X size={16} />
-                                <span className="text-[8px] font-black uppercase hidden md:inline">Remover</span>
+                                <X size={14} className="group-hover/remove:rotate-90 transition-transform duration-300" />
+                                <span className="text-[8px] font-black uppercase tracking-widest whitespace-nowrap">Sair da Liga</span>
                               </button>
                             )}
                             <button 
@@ -4621,7 +4653,11 @@ const [isGuest, setIsGuest] = useState(false);
                 }
               }
             }, (error) => {
-              console.error("Error listening to user profile:", error);
+              if (error.code === 'permission-denied') {
+                console.warn("Permission denied listening to profile (expected during login transitions)");
+              } else {
+                handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+              }
             });
 
             // Store unsubscribe function to cleanup

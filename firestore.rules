@@ -37,9 +37,9 @@ service cloud.firestore {
 
     // --- Validation Models ---
 
-    function isValidUser(data) {
+    function isValidUser(data, userId) {
       return data.keys().hasAll(['uid', 'email', 'nome']) &&
-             data.uid == request.auth.uid &&
+             data.uid == userId &&
              data.email is string && data.email.size() <= 256 &&
              data.nome is string && data.nome.size() <= 100 &&
              (!('bairro' in data) || (data.bairro is string && data.bairro.size() <= 100)) &&
@@ -50,7 +50,6 @@ service cloud.firestore {
              (!('isPro' in data) || (data.isPro is bool)) &&
              (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 1024)) &&
              (!('provider' in data) || (data.provider is string)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || data.createdAt is number)) &&
              (!('role' in data) || (data.role in ['user', 'admin']));
     }
 
@@ -84,16 +83,19 @@ service cloud.firestore {
     // --- Collections ---
 
     // Users
-    match /users/{uid} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn(); // Rankings and general user lists
-      allow create: if isSignedIn() && uid == request.auth.uid && isValidId(uid) && isValidUser(incoming()) && (
-        incoming().role == 'user' || (incoming().role == 'admin' && request.auth.token.email.lower() == "afonsomilitao85@gmail.com")
+    match /users/{userId} {
+      // Allow any signed-in user to read user profiles (needed for rankings/scout)
+      // Privacy: The app should avoid storing sensitive data here or split it if needed.
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming(), userId);
+      
+      allow update: if isSignedIn() && (userId == request.auth.uid || isAdmin()) && (
+        // Allow updating specific profile fields
+        (incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'bairro', 'avatar', 'updatedAt', 'jogos', 'golos', 'mvps', 'ranking', 'isPro', 'provider', 'createdAt', 'bio', 'localizacao']) && isValidUser(incoming(), userId))
+        || isAdmin()
       );
-      allow update: if isSignedIn() && uid == request.auth.uid && isValidId(uid) && (
-        // Action: Update Profile
-        (incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'bairro', 'avatar', 'updatedAt', 'jogos', 'golos', 'mvps', 'ranking', 'isPro', 'provider', 'createdAt']) && isValidUser(incoming()))
-      ) || isAdmin();
+      
       allow delete: if isAdmin();
     }
 
@@ -133,7 +135,7 @@ service cloud.firestore {
     match /participations/{id} {
       allow read: if true;
       allow create: if isSignedIn() && isValidParticipation(incoming());
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/teams/$(existing().equipaId)) && get(/databases/$(database)/documents/teams/$(existing().equipaId)).data.createdBy == request.auth.uid);
     }
 
     function isValidParticipation(data) {
