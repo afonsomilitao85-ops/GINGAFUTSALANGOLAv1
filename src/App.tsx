@@ -118,6 +118,13 @@ interface Post {
   type?: 'video' | 'photo';
 }
 
+interface GameEvent {
+  tipo: 'golo' | 'cartao_amarelo' | 'cartao_vermelho';
+  jogador: string;
+  equipa: string;
+  minuto: number;
+}
+
 interface Match {
   id: string;
   equipaA: string;
@@ -135,6 +142,11 @@ interface Match {
   jornada?: number;
   hora?: string;
   local?: string;
+  campo?: string;
+  tempoAtual?: number;
+  tempoMaximo?: number;
+  estadoTempo?: 'nao_iniciado' | 'a_decorrer' | 'intervalo' | 'pausado' | 'finalizado';
+  eventos?: GameEvent[];
   timestamp?: number;
 }
 
@@ -227,6 +239,25 @@ interface UserProfile {
   localizacao?: string;
 }
 
+// --- Constants ---
+const SCREEN_TITLES: Record<string, string> = {
+  inicio: "GINGA FUTSAL",
+  pelada: "PELADAS",
+  live: "AO VIVO",
+  competicoes: "COMPETIÇÕES",
+  mercado: "MERCADO",
+  perfil: "PERFIL",
+  scout: "SCOUT",
+  reservas: "RESERVAS",
+  monetizacao: "GINGA PRO",
+  ranking: "RANKING",
+  convite: "CONVITE",
+  notificacoes: "NOTIFICAÇÕES",
+  admin: "ÁREA ADMIN",
+  sobre: "SOBRE",
+  messenger: "MESSENGER"
+};
+
 // --- Mock Data ---
 const INITIAL_POSTS: Post[] = [
   { 
@@ -313,13 +344,13 @@ const authService = {
 
 const Navbar = ({ activeScreen, setActiveScreen }: { activeScreen: Screen, setActiveScreen: (s: Screen) => void }) => {
   const navItems = [
-    { id: 'inicio', icon: Home, label: 'Início' },
-    { id: 'pelada', icon: PlayCircle, label: 'Pelada' },
-    { id: 'scout', icon: Search, label: 'Scout' },
-    { id: 'live', icon: Video, label: 'Live' },
-    { id: 'competicoes', icon: Trophy, label: 'Copas' },
-    { id: 'mercado', icon: ShoppingBag, label: 'Mercado' },
-    { id: 'perfil', icon: User, label: 'Perfil' },
+    { id: 'inicio', icon: Home, label: 'HOME' },
+    { id: 'pelada', icon: PlayCircle, label: 'PELADAS' },
+    { id: 'scout', icon: Search, label: 'SCOUT' },
+    { id: 'live', icon: Video, label: 'AO VIVO' },
+    { id: 'competicoes', icon: Trophy, label: 'COPAS' },
+    { id: 'mercado', icon: ShoppingBag, label: 'MERCADO' },
+    { id: 'perfil', icon: User, label: 'PERFIL' },
   ];
 
   return (
@@ -2997,7 +3028,8 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
     equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
     golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado' as any,
     ligaId: '', liga: '', jornada: 1, grupo: '',
-    data: '', hora: '', local: ''
+    data: '', hora: '', local: '', campo: '',
+    tempoAtual: 0, tempoMaximo: 40, estadoTempo: 'nao_iniciado' as any
   });
 
   useEffect(() => {
@@ -3316,7 +3348,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         equipaBId: e2.id,
         golosA: newMatch.golosA,
         golosB: newMatch.golosB,
-        tempo: newMatch.tempo,
+        tempo: newMatch.status === 'agendado' ? '00:00' : newMatch.tempo,
         status: newMatch.status,
         jornada: newMatch.jornada || 1,
         ligaId: l.id,
@@ -3325,6 +3357,11 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         data: newMatch.data || (editingMatch ? editingMatch.data : ''),
         hora: newMatch.hora || '',
         local: newMatch.local || '',
+        campo: newMatch.campo || '',
+        tempoAtual: Number(newMatch.tempoAtual) || 0,
+        tempoMaximo: Number(newMatch.tempoMaximo) || 40,
+        estadoTempo: newMatch.estadoTempo || 'nao_iniciado',
+        eventos: editingMatch?.eventos || [],
         timestamp: timestamp
       };
 
@@ -3337,7 +3374,8 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
         equipaA: '', equipaB: '', equipaAId: '', equipaBId: '', 
         golosA: 0, golosB: 0, tempo: '00:00', status: 'agendado',
         ligaId: '', liga: '', jornada: 1, grupo: '',
-        data: '', hora: '', local: ''
+        data: '', hora: '', local: '', campo: '',
+        tempoAtual: 0, tempoMaximo: 40, estadoTempo: 'nao_iniciado'
       });
       setShowAddMatch(false);
       setEditingMatch(null);
@@ -4151,6 +4189,35 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                         </div>
                       </div>
 
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Campo / Local</label>
+                        <input 
+                          type="text" placeholder="Ex: Pavilhão da Cidadela"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-bold" 
+                          value={newMatch.campo} onChange={e => setNewMatch({...newMatch, campo: e.target.value})}
+                          autoFocus={false}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Tempo Máximo (min)</label>
+                          <input 
+                            type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-bold" 
+                            value={newMatch.tempoMaximo} onChange={e => setNewMatch({...newMatch, tempoMaximo: parseInt(e.target.value) || 40})}
+                            autoFocus={false}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Tempo Atual (min)</label>
+                          <input 
+                            type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-accent outline-none font-bold" 
+                            value={newMatch.tempoAtual} onChange={e => setNewMatch({...newMatch, tempoAtual: parseInt(e.target.value) || 0})}
+                            autoFocus={false}
+                          />
+                        </div>
+                      </div>
+
                       <button onClick={handleCreateMatch} className="w-full bg-accent text-white font-bold py-5 rounded-2xl text-xs uppercase shadow-lg shadow-accent/20 mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]">
                         {editingMatch ? 'GUARDAR RESULTADO' : 'CRIAR JOGO'}
                       </button>
@@ -4192,7 +4259,7 @@ const AdminScreen = ({ onBack, currentUser }: { onBack: () => void, currentUser:
                                         {status.replace('_', ' ')}
                                       </div>
                                       <div className="flex gap-2">
-                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, grupo: m.grupo || '', data: m.data || '', hora: m.hora || '', local: m.local || '' }); setShowAddMatch(true); }} className="p-2 bg-white/5 rounded-lg hover:text-accent transition-colors">
+                                        <button onClick={() => { setEditingMatch(m); setNewMatch({ equipaA: m.equipaA, equipaB: m.equipaB, equipaAId: m.equipaAId, equipaBId: m.equipaBId, golosA: m.golosA, golosB: m.golosB, tempo: m.tempo, status: m.status as any, ligaId: m.ligaId, liga: m.liga, jornada: m.jornada || 1, grupo: m.grupo || '', data: m.data || '', hora: m.hora || '', local: m.local || '', campo: m.campo || '', tempoAtual: m.tempoAtual || 0, tempoMaximo: m.tempoMaximo || 40, estadoTempo: m.estadoTempo || 'nao_iniciado' }); setShowAddMatch(true); }} className="p-2 bg-white/5 rounded-lg hover:text-accent transition-colors">
                                           <Edit size={14} />
                                         </button>
                                         <button onClick={() => handleDeleteMatch(m.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
@@ -4539,6 +4606,13 @@ export default function App() {
 const [isGuest, setIsGuest] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [activeScreen, setActiveScreen] = useState<Screen>('inicio');
+  const [headerTitle, setHeaderTitle] = useState(SCREEN_TITLES.inicio);
+
+  useEffect(() => {
+    // Reset or update header title whenever activeScreen changes
+    setHeaderTitle(SCREEN_TITLES[activeScreen] || SCREEN_TITLES.inicio);
+  }, [activeScreen]);
+
   const [toasts, setToasts] = useState<Toast[]>([]);
   const previousMatchesRef = useRef<Record<string, Match>>({});
   const [posts, setPosts] = useState<Post[]>([]);
@@ -5070,22 +5144,7 @@ const [isGuest, setIsGuest] = useState(false);
       </AnimatePresence>
       {activeScreen !== 'sobre' && activeScreen !== 'messenger' && (
         <Header 
-          title={
-            activeScreen === 'inicio' ? 'Início' :
-            activeScreen === 'pelada' ? 'Pelada' :
-            activeScreen === 'live' ? 'Ao Vivo' :
-            activeScreen === 'competicoes' ? 'Competições' :
-            activeScreen === 'mercado' ? 'Mercado' :
-            activeScreen === 'perfil' ? 'Perfil' :
-            activeScreen === 'scout' ? 'Scout' :
-            activeScreen === 'reservas' ? 'Reservas' :
-            activeScreen === 'monetizacao' ? 'Ginga PRO' :
-            activeScreen === 'ranking' ? 'Ranking' :
-            activeScreen === 'convite' ? 'Convite' :
-            activeScreen === 'notificacoes' ? 'Notificações' :
-            activeScreen === 'admin' ? 'Área Admin' :
-            activeScreen.toUpperCase()
-          } 
+          title={headerTitle || "GINGA FUTSAL"} 
           onChatClick={() => handleScreenChange('messenger')}
           onScoutClick={() => handleScreenChange('scout')}
           onNotificationClick={() => handleScreenChange('notificacoes')}
